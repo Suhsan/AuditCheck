@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AUDIT/AUDIT-C（フル機能版・性別UI改良・印刷1枚）</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#111827; --muted:#6b7280; --border:#e5e7eb; --subtle:#f9fafb;
+  --ok:#dcfce7; --warn:#fef9c3; --alert:#fee2e2;
+  --blue:#2563eb; --blue-2:#1d4ed8;
+  --pink:#ec4899; --pink-2:#db2777;
+  --orange:#ff6a00; --orange-bg:#fff4e6; --orange-border:#ffd1a6;
+}
+html,body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif;margin:0}
+.container{max-width:980px;margin:0 auto;padding:20px 14px 80px;}
+h1{font-size:1.6rem;margin:0 0 10px;}
+h2{font-size:1.2rem;margin:14px 0 8px;}
+h3{font-size:1rem;margin:10px 0 6px;}
+.card{border:1px solid var(--border);border-radius:14px;padding:14px;background:#fff;}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+.btn{display:inline-block;border:1px solid var(--border);background:#fff;border-radius:12px;padding:8px 12px;font-weight:700;cursor:pointer;transition:filter .15s ease, transform .05s ease}
+.btn:hover{filter:brightness(.98)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.orange{background:var(--orange);color:#fff;border-color:var(--orange)}
+.badge{display:inline-block;border-radius:999px;padding:4px 10px;font-weight:700;font-size:.85rem;}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.alert{background:var(--alert)}
+.q{background:var(--subtle);padding:12px;border-radius:12px;border:1px solid var(--border);}
+.options{display:grid;gap:8px}
+@media(min-width:720px){.options{grid-template-columns:repeat(5,minmax(0,1fr));}}
+label.opt{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:10px;background:#fff;padding:8px}
+ol.q-list{list-style:none;padding-left:0;display:grid;gap:10px}
+.hidden{display:none}
+.small{font-size:.9rem}
+.muted{color:var(--muted)}
+.score{font-size:1.7rem;font-weight:800;color:var(--orange);background:var(--orange-bg);border:1px solid var(--orange-border);padding:2px 10px;border-radius:999px;}
+
+/* Gender buttons */
+.btn.male,.btn.female{background:#fff}
+.btn.male{color:var(--blue);border-color:var(--blue)}
+.btn.female{color:var(--pink);border-color:var(--pink)}
+.btn.male.selected{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.female.selected{background:var(--pink);color:#fff;border-color:var(--pink)}
+.btn.male.selected,.btn.female.selected{box-shadow:0 0 0 3px rgba(0,0,0,.04) inset;transform:translateY(-1px)}
+.btn.male.selected::before,.btn.female.selected::before{content:"✓";font-weight:900;margin-right:6px}
+.sex-status{border-radius:999px;padding:4px 10px;font-weight:700;border:1px solid var(--border);background:#f3f4f6;color:#111}
+.sex-status.male{background:#dbeafe;border-color:#bfdbfe;color:#1d4ed8}
+.sex-status.female{background:#ffe4ef;border-color:#ffc2dc;color:#db2777}
+@keyframes softBlink{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.35)}50%{box-shadow:0 0 0 6px rgba(37,99,235,.18)}}
+.blink-attn{animation:softBlink 1.2s ease-in-out infinite}
+
+/* To-full blink */
+@keyframes blinkFade{0%,100%{opacity:1}50%{opacity:.35}}.blink{animation:blinkFade 1s linear infinite}
+
+/* calc */
+.calc-wrap{margin-top:8px}
+.pill{border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer;}
+.table{width:100%;border-collapse:collapse;font-size:.9rem;}
+.table th,.table td{border-bottom:1px solid var(--border);padding:6px 6px;text-align:left;}
+input[type=number],input[type=text]{border:1px solid var(--border);border-radius:10px;padding:6px 8px;font-size:.9rem;width:100%;box-sizing:border-box;}
+.qty{display:flex;align-items:center;gap:6px;}
+.iconbtn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:900;}
+.sum{font-size:1.05rem;font-weight:800;}
+.emph{color:var(--orange);background:var(--orange-bg);padding:2px 8px;border-radius:999px;border:1px solid var(--orange-border);}
+details summary{cursor:pointer;font-weight:700}
+details[open] summary{color:var(--blue)}
+
+/* memo/history */
+.history{width:100%;border-collapse:collapse;font-size:.9rem;}
+.history th,.history td{border-bottom:1px solid var(--border);padding:6px;text-align:left;}
+.history-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* print concise one-pager */
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  header, main .card:not(#printSheetCard), .topbar, .btn, details, .history, #calcDetails{display:none !important}
+  #printSheetCard{display:block !important}
+}
+#printSheetCard{display:none}
+
+/* ======== Mobile optimizations ======== */
+@media (max-width: 640px) {
+  html, body { font-size: 16px; }
+  .container { padding: 12px 10px 72px; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.1rem; }
+  .card { border-radius: 12px; padding: 12px; }
+  .btn { padding: 12px 14px; min-height: 44px; border-radius: 14px; }
+  .score { font-size: 1.4rem; }
+  .options { grid-template-columns: 1fr !important; } /* 選択肢は縦一列 */
+  /* トップバー：性別ボタンとステータスを縦積み＆見やすく */
+  .topbar { gap: 10px; }
+  .topbar .btn { flex: 1 1 48%; }
+  #sexStatus { width: 100%; text-align: center; }
+  /* Q3直下のボタン群は縦積み（各ボタンフル幅） */
+  #auditc-section .row > .btn { flex: 1 1 100%; }
+  /* プリセットは横スクロールしやすく */
+  #presets { overflow-x: auto; white-space: nowrap; display: flex; gap: 8px; padding-bottom: 4px; }
+  #presets .pill { display: inline-block; }
+  /* 計算テーブルは横スクロール */
+  .table { font-size: 0.9rem; min-width: 560px; }
+  .calc-wrap { margin-top: 6px; }
+  /* 履歴テーブルも横スクロール */
+  #historyTable { min-width: 560px; }
+  /* 印刷ボタン行のボタンも折り返し */
+  #audit-full-section .row .btn { flex: 1 1 48%; }
+}
+
+#presets .pill { background-color: #ffe4ef; } /* Light pink background for better visibility */
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>AUDIT / AUDIT-C（フル機能版）</h1>
+    <div class="row topbar">
+      <button id="btnMale" class="btn male" type="button" aria-pressed="false">男性</button>
+      <button id="btnFemale" class="btn female" type="button" aria-pressed="false">女性</button>
+      <span id="sexStatus" class="sex-status">性別：未選択</span>
+      <div style="flex:1 1 auto"></div>
+      <button id="toggleCalc" class="btn orange" type="button" aria-expanded="false">ドリンク数を簡単に計算</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- AUDIT-C -->
+    <section id="auditc-section" class="card">
+      <h2>AUDIT-C（最初の3問）</h2>
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <div class="small">
+          <span style="font-weight:600;">AUDIT-C合計：</span>
+          <span id="auditc-score" class="score">0</span>
+          <span class="muted small" id="auditc-note"></span>
+        </div>
+      </div>
+
+      <ol id="auditc" class="q-list" style="margin-top:10px;">
+        <li class="q">
+          <p><strong>Q1.</strong> あなたはアルコール含有飲料をどのくらいの頻度で飲みますか</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditc_0" value="0"> 飲まない</label>
+            <label class="opt small"><input type="radio" name="auditc_0" value="1"> 月に1度以下</label>
+            <label class="opt small"><input type="radio" name="auditc_0" value="2"> 月に2〜4度</label>
+            <label class="opt small"><input type="radio" name="auditc_0" value="3"> 週に2〜3度</label>
+            <label class="opt small"><input type="radio" name="auditc_0" value="4"> 週に4度以上</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q2.</strong> 飲酒するとき、通常どのくらいの量を飲みますか<br><small class='muted'>※参考「ドリンク数」を参照</small></p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditc_1" value="0"> 1〜2ドリンク</label>
+            <label class="opt small"><input type="radio" name="auditc_1" value="1"> 3〜4ドリンク</label>
+            <label class="opt small"><input type="radio" name="auditc_1" value="2"> 5〜6ドリンク</label>
+            <label class="opt small"><input type="radio" name="auditc_1" value="3"> 7〜9ドリンク</label>
+            <label class="opt small"><input type="radio" name="auditc_1" value="4"> 10ドリンク以上</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q3.</strong> 一度に6ドリンク以上飲酒することがどのくらいの頻度でありますか</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditc_2" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditc_2" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditc_2" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditc_2" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditc_2" value="4"> ほぼ毎日</label>
+          </div>
+        </li>
+      </ol>
+
+      <!-- Buttons under Q3 -->
+      <div class="row" style="gap:8px; margin:10px 0 6px;">
+        <button id="toggleCalc2" class="btn orange" type="button">ドリンク数を簡単に計算（内蔵ツール）</button>
+        <button id="to-full" class="btn primary" type="button">フルAUDIT（10問）に進む</button>
+        <button id="reset" class="btn" type="button">リセット</button>
+      </div>
+
+      <!-- Quick calc -->
+      <details id="calcDetails" class="calc-wrap">
+        <summary>飲酒量クイック計算（開閉）</summary>
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;margin:8px 0;">
+          <div>
+            <div class="sum">合計：<span id="sumG">0.0</span> g / <span id="sumD" class="emph">0.0</span> ドリンク</div>
+            <div class="muted" id="metabolismNote">推定分解時間：男性 約0時間 / 女性 約0時間</div>
+          </div>
+          <div class="row">
+            <button id="btnCopy" class="btn">合計をコピー</button>
+            <button id="btnReflect" class="btn orange">Q2へ反映</button>
+            <button id="btnResetAll" class="btn">全クリア</button>
+          </div>
+        </div>
+        <div class="muted">同じプリセットを押すと本数が増えます。下の自由入力からも追加できます。</div>
+        <div id="presets" class="row" style="gap:8px; margin:8px 0 10px;"></div>
+
+        <div class="card" style="margin:8px 0;">
+          <h3 style="margin:0 0 6px;">自由入力で追加</h3>
+          <div class="row" style="gap:8px; grid-template-columns: 1.2fr 0.8fr 0.8fr 0.8fr auto; display:grid; align-items:center;">
+            <input id="c_name" type="text" placeholder="名称（例：自家製カクテル）" />
+            <input id="c_ml" type="number" min="0" step="1" placeholder="容量 mL" />
+            <input id="c_abv" type="number" min="0" max="100" step="0.1" placeholder="度数 %" />
+            <input id="c_qty" type="number" min="1" step="1" value="1" placeholder="本数" />
+            <button id="c_add" class="btn">追加</button>
+          </div>
+          <div class="muted" style="margin-top:6px;">※純アルコール量(g) = mL × (度数% / 100) × 0.8</div>
+        </div>
+
+        <div style="overflow-x:auto; margin-top:6px;">
+          <table class="table">
+            <thead>
+              <tr><th>飲料</th><th>容量(mL)</th><th>度数(%)</th><th>本数</th><th>1本(g)</th><th>小計(g)</th><th>小計(ドリンク)</th><th></th></tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+      </details>
+
+      <div id="auditc-result" class="hidden card"></div>
+    </section>
+
+    <!-- Full AUDIT -->
+    <section id="audit-full-section" class="card hidden" style="margin-top:16px;">
+      <h2>フルAUDIT（残り7問）</h2>
+      <ol id="audit-rest" class="q-list">
+        <li id="q4" class="q">
+          <p><strong>Q4.</strong> 過去１年間に、飲み始めると止められなかったことが、どれくらいの頻度でありましたか。（明日の用事のためいつもより少量で切り上げようと思っても、いつもの量まで飲んでしまう等）</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_0" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_0" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditrest_0" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_0" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_0" value="4"> 毎日またはほぼ毎日</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q5.</strong> 過去１年間に、普通だと行えることを飲酒していたためにできなかったことが、どのくらいの頻度でありましたか。（飲んでしまって子ども達の送迎ができない 二日酔いで翌日の仕事・予定に遅刻・欠席等）</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_1" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_1" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditrest_1" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_1" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_1" value="4"> 毎日またはほぼ毎日</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q6.</strong> 過去１年間に、深酒の後体調を整えるために、朝迎え酒をしなければならなかったことが、どのくらいの頻度でありましたか。</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_2" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_2" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditrest_2" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_2" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_2" value="4"> 毎日またはほぼ毎日</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q7.</strong> 過去１年間に、飲酒後罪悪感や自責の念にかられたことが、どのくらいの頻度でありましたか。</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_3" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_3" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditrest_3" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_3" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_3" value="4"> 毎日またはほぼ毎日</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q8.</strong> 過去１年間に、飲酒のため前夜の出来事を思い出せなかったことが、どのくらいの頻度でありましたか。（飲み屋 1 軒目は覚えているが、2 軒目の途中から支払いや帰宅の記憶があいまい等）</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_4" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_4" value="1"> 月に1度未満</label>
+            <label class="opt small"><input type="radio" name="auditrest_4" value="2"> 月に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_4" value="3"> 週に1度</label>
+            <label class="opt small"><input type="radio" name="auditrest_4" value="4"> 毎日またはほぼ毎日</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q9.</strong> あなたの飲酒のために、あなた自身か他の誰かが怪我をしたことがありますか。</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_5" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_5" value="2"> あるが、過去1年にはない</label>
+            <label class="opt small"><input type="radio" name="auditrest_5" value="4"> 過去1年間にあり</label>
+          </div>
+        </li>
+        <li class="q">
+          <p><strong>Q10.</strong> 肉親や親戚、友人、医師、あるいは他の健康管理に携わる人が、あなたの飲酒について心配したり、飲酒量を減らすように勧めたりしたことがありますか。</p>
+          <div class="options">
+            <label class="opt small"><input type="radio" name="auditrest_6" value="0"> ない</label>
+            <label class="opt small"><input type="radio" name="auditrest_6" value="2"> あるが、過去1年にはない</label>
+            <label class="opt small"><input type="radio" name="auditrest_6" value="4"> 過去1年間にあり</label>
+          </div>
+        </li>
+      </ol>
+
+      
+      <!-- Judge button directly under Q10 -->
+      <div id="judgeButtonWrap" class="row" style="gap:8px; margin:8px 0 6px;">
+        <button id="btnJudge" class="btn primary" type="button">判定する</button>
+      </div>
+<div class="row mb-2" style="gap:8px;">
+        <div class="small">
+          <span style="font-weight:600;">AUDIT合計：</span>
+          <span id="auditfull-score" class="score">—</span>
+        </div>
+        <button id="btnPrintPage" class="btn" type="button" title="A4で印刷／PDF保存">印刷</button>
+        <button id="reset2" class="btn" type="button">リセット</button>
+      </div>
+
+      <div class="small mb-4">
+        <span style="font-weight:600;">判定：</span>
+        <span id="auditfull-judge" class="badge">ー</span>
+      </div>
+
+      <div id="auditfull-result" class="hidden card"></div>
+    </section>
+
+    <!-- Memo & History -->
+    <section class="card" style="margin-top:16px;">
+      <h2>面談メモ</h2>
+      <textarea id="memo" class="memo" placeholder="面談の要点、気づき、今後の方針などを記録（ブラウザに保存されます）" style="min-height: 120px; width: 100%; box-sizing: border-box; border:1px solid var(--border); border-radius:10px; padding:8px;"></textarea>
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <span id="saveState" class="save-ind">未保存</span>
+        <div class="row" style="gap:8px;">
+          <button id="saveRecord" class="btn primary" type="button">結果＋メモを履歴に保存</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:16px;">
+      <h2>保存履歴</h2>
+      <div class="row" style="justify-content:space-between;">
+        <div class="small muted">この端末のブラウザに保存されます。</div>
+        <div class="history-actions">
+          <button id="exportCSV" class="btn">CSVエクスポート</button>
+          <button id="clearAll" class="btn">履歴を全削除</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto; margin-top:8px;">
+        <table class="history" id="historyTable">
+          <thead>
+            <tr><th>日時</th><th>性別</th><th>AUDIT-C</th><th>AUDIT合計</th><th>判定</th><th>ドリンク</th><th>純アルコール(g)</th><th>操作</th></tr>
+          </thead>
+          <tbody id="historyBody"><tr><td colspan="8" class="muted">保存はまだありません。</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- concise print sheet -->
+    <section id="printSheetCard" class="card">
+      <h2 style="margin:0 0 6px">アルコールチェック結果</h2>
+      <div id="printSheetBody" class="small">（印刷時のみ出力・自動更新）</div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  const $=q=>document.querySelector(q), $$=q=>Array.from(document.querySelectorAll(q));
+
+  // ----- State
+  let sex=''; // 'male'|'female'|''
+  const auditC=[null,null,null];
+  const auditRest=[null,null,null,null,null,null,null];
+  let judgeTriggered=false; // 「判定する」ボタンが押されたらtrue
+
+  function sum(a){return a.reduce((x,y)=>x+(y==null?0:y),0);}
+  function allAns(a){return a.every(v=>v!=null);}
+
+  // ----- Sex UI
+  function updateSexStatus(){
+    const maleSel = $("#btnMale").classList.contains('selected');
+    const femaleSel = $("#btnFemale").classList.contains('selected');
+    const badge = $("#sexStatus");
+    badge.classList.remove('male','female');
+    if(maleSel){ badge.textContent='性別：男性'; badge.classList.add('male'); }
+    else if(femaleSel){ badge.textContent='性別：女性'; badge.classList.add('female'); }
+    else { badge.textContent='性別：未選択'; }
+  }
+  function updateSexBlink(){
+    const maleBtn=$("#btnMale"), femaleBtn=$("#btnFemale");
+    const any = maleBtn.classList.contains('selected') || femaleBtn.classList.contains('selected');
+    if(any){ maleBtn.classList.remove('blink-attn'); femaleBtn.classList.remove('blink-attn'); }
+    else { maleBtn.classList.add('blink-attn'); femaleBtn.classList.add('blink-attn'); }
+  }
+  function setSex(s){
+    sex=s;
+    const male=$("#btnMale"), female=$("#btnFemale");
+    const ms = s==='male', fs=s==='female';
+    male.classList.toggle('selected', ms); female.classList.toggle('selected', fs);
+    male.setAttribute('aria-pressed', String(ms)); female.setAttribute('aria-pressed', String(fs));
+    updateSexStatus(); updateSexBlink();
+    updateMetabolismNote(); // for calc
+    updateAuditCScore();
+    updatePrintSheet();
+    updateJudgeBlink();
+  }
+  $("#btnMale").addEventListener('click',()=>setSex('male'));
+  $("#btnFemale").addEventListener('click',()=>setSex('female'));
+
+  // ----- AUDIT-C
+  [0,1,2].forEach(i=>{
+    $$(`input[name="auditc_${i}"]`).forEach(r=>r.addEventListener('change',e=>{ auditC[i]=Number(e.target.value); judgeTriggered=false; updateAuditCScore(); }));
+  });
+  function maybeAutoShowFull(score){
+    const three = allAns(auditC);
+    if(!three) return;
+    const maleHigh=score>=5, femaleHigh=score>=4;
+    if( (sex==='male' && maleHigh) || (sex==='female' && femaleHigh) || (!sex && maleHigh) ){
+      $("#audit-full-section").classList.remove('hidden');
+    }
+  }
+  function updateAuditCScore(){
+    const score = sum(auditC);
+    $("#auditc-score").textContent = score;
+    $("#auditc-note").textContent = sex ? "（男≧5／女≧4で自動表示）" : "（性別未選択でも合計5以上で自動表示）";
+    const resultBox = $("#auditc-result");
+    if(allAns(auditC)){
+      const high = (sex==='male' && score>=5) || (sex==='female' && score>=4) || (!sex && score>=5);
+      if(high){
+        $("#to-full").classList.add('blink');
+        resultBox.className="card";
+        resultBox.innerHTML="<h3 class='mb-2'>AUDIT-C 判定</h3><p class='badge warn mb-2'>危険な飲酒の可能性</p><p class='small'>フルAUDITで詳しく評価してください（自動表示）。</p>";
+      }else{
+        $("#to-full").classList.remove('blink');
+        resultBox.className="card";
+        resultBox.innerHTML="<h3 class='mb-2'>AUDIT-C 判定</h3><p class='badge ok mb-2'>危険の少ない飲酒</p><p class='small'>年1回程度のチェックをおすすめします。</p>";
+      }
+      maybeAutoShowFull(score);
+    }else{
+      resultBox.classList.add('hidden');
+    }
+    updateAuditFullScore(); // in case full already answered
+    updatePrintSheet();
+    updateJudgeBlink();
+  }
+
+  // ----- Full AUDIT
+  for(let i=0;i<7;i++){
+    $$(`input[name="auditrest_${i}"]`).forEach(r=>r.addEventListener('change',e=>{ auditRest[i]=Number(e.target.value); judgeTriggered=false; updateAuditFullScore(); }));
+  }
+  function adviceFor(label){
+    if(label==="危険の少ない飲酒") return "いいですね。年1回チェックしましょう。";
+    if(label==="危険な飲酒") return "アルコールによる健康障害がおきる可能性があるので、お酒を減らせると良いでしょう。";
+    if(label==="有害な飲酒") return "アルコールによる健康障害が起きている可能性が高いようです。アルコール依存症の可能性があります。\nお酒を減らしましょう。\nお酒を減らしていくなかで、むずかしいと感じた場合は、医療機関に相談しましょう。";
+    return "アルコール依存症の可能性が高いため、専門医への受診が必要です.";
+  }
+  function updateAuditFullScore(){
+  const score = sum(auditC)+sum(auditRest);
+  const ready = allAns(auditC) && allAns(auditRest);
+  updateJudgeBlink();
+  const box = $("#auditfull-result");
+
+  if(!ready){
+    $("#auditfull-score").textContent = "—";
+    $("#auditfull-judge").textContent="ー";
+    $("#auditfull-judge").className="badge";
+    box.classList.add("hidden");
+    updatePrintSheet();
+    updateJudgeBlink();
+    return;
+  }
+  if(!judgeTriggered){
+    // 回答は揃っているが「判定する」が押されていない場合
+    $("#auditfull-score").textContent = "—";
+    $("#auditfull-judge").textContent="ー";
+    $("#auditfull-judge").className="badge";
+    box.classList.add("hidden");
+    updatePrintSheet();
+    updateJudgeBlink();
+    return;
+  }
+
+  // ここに来たら「判定する」済み
+  $("#auditfull-score").textContent = score;
+  let label="", badgeClass="";
+  if(score<8){ label="危険の少ない飲酒"; badgeClass="ok"; }
+  else if(score<=14){ label="危険な飲酒"; badgeClass="warn"; }
+  else if(score<=19){ label="有害な飲酒"; badgeClass="alert"; }
+  else { label="アルコール依存症の可能性が高い"; badgeClass="alert"; }
+  const judge=$("#auditfull-judge");
+  judge.textContent=label; judge.className="badge "+badgeClass;
+  box.innerHTML = "<h3 class='mb-2'>AUDIT 判定</h3><p class='badge "+badgeClass+" mb-2'>"+label+"</p><p class='small' style='white-space:pre-line;'>"+adviceFor(label)+"</p>";
+  box.classList.remove("hidden");
+  updatePrintSheet();
+
+  updateJudgeBlink();
+}
+
+  // ----- Quick calc
+  const PRESETS=[
+    {n:"ビール缶 350mL",ml:350,a:5},{n:"ビール缶 500mL",ml:500,a:5},
+    {n:"生ビール中ジョッキ", ml:400, a:5},
+    {n:"酎ハイ 350mL",ml:350,a:7},{n:"酎ハイ 500mL",ml:500,a:7},
+    {n:"ストロングチューハイ 350mL",ml:350,a:9},{n:"ストロングチューハイ 500mL",ml:500,a:9},
+    {n:"日本酒 1合",ml:180,a:15},{n:"ワイン グラス",ml:120,a:12},
+    {n:"焼酎 25%原酒60mL",ml:60,a:25},
+    {n:"焼酎 20%原酒100mL", ml:100, a:20},{n:"焼酎 25%原酒100mL", ml:100, a:25},
+    {n:"ウイスキー 30mL",ml:30,a:40}
+  ];
+  let items=[];
+  const itemsBody=$("#itemsBody");
+  function grams(ml,a){return ml*(a/100)*0.8;}
+  function updateMetabolismNote(){
+    const g=parseFloat($("#sumG").textContent)||0;
+    const mh=(g/20)*4, fh=(g/20)*5;
+    let t="推定分解時間：男性 約"+mh.toFixed(1)+"時間 / 女性 約"+fh.toFixed(1)+"時間";
+    if(sex==='male') t+="（対象：男性）"; if(sex==='female') t+="（対象：女性）";
+    $("#metabolismNote").textContent=t;
+  }
+  function updateCalc(){
+    itemsBody.innerHTML=""; let sumG=0;
+    items.forEach((it,idx)=>{
+      const tr=document.createElement('tr');
+      function td(){return document.createElement('td');}
+      let tdName=td(); tdName.textContent=it.n; tr.appendChild(tdName);
+      let tdMl=td(); const ml=document.createElement('input'); ml.type='number'; ml.value=it.ml; ml.min='0'; ml.step='1';
+      ml.addEventListener('input',()=>{ it.ml=Number(ml.value)||0; updateCalc(); }); tdMl.appendChild(ml); tr.appendChild(tdMl);
+      let tdAbv=td(); const abv=document.createElement('input'); abv.type='number'; abv.value=it.a; abv.min='0'; abv.max='100'; abv.step='0.1';
+      abv.addEventListener('input',()=>{ it.a=Number(abv.value)||0; updateCalc(); }); tdAbv.appendChild(abv); tr.appendChild(tdAbv);
+      let tdQty=td(); const wrap=document.createElement('div'); wrap.className='qty';
+      const minus=document.createElement('button'); minus.className='iconbtn'; minus.textContent='−';
+      const qty=document.createElement('input'); qty.type='number'; qty.value=it.q||1; qty.min='0'; qty.step='1'; qty.style.width='64px';
+      const plus=document.createElement('button'); plus.className='iconbtn'; plus.textContent='＋';
+      minus.addEventListener('click',()=>{ it.q=Math.max(0,(Number(it.q)||0)-1); updateCalc(); });
+      plus.addEventListener('click',()=>{ it.q=(Number(it.q)||0)+1; updateCalc(); });
+      qty.addEventListener('input',()=>{ it.q=Math.max(0,Number(qty.value)||0); updateCalc(); });
+      wrap.append(minus,qty,plus); tdQty.appendChild(wrap); tr.appendChild(tdQty);
+      const one=grams(it.ml,it.a); let tdOne=td(); tdOne.textContent=one.toFixed(1); tr.appendChild(tdOne);
+      const subG=one*(it.q||1); let tdSubG=td(); tdSubG.textContent=subG.toFixed(1); tr.appendChild(tdSubG);
+      const subD=subG/10; let tdSubD=td(); tdSubD.textContent=subD.toFixed(2); tr.appendChild(tdSubD);
+      let tdDel=td(); const del=document.createElement('button'); del.className='btn'; del.textContent='削除';
+      del.addEventListener('click',()=>{ items.splice(idx,1); updateCalc(); }); tdDel.appendChild(del); tr.appendChild(tdDel);
+      itemsBody.appendChild(tr);
+      sumG+=subG;
+    });
+    $("#sumG").textContent=sumG.toFixed(1);
+    $("#sumD").textContent=(sumG/10).toFixed(2);
+    updateMetabolismNote();
+    updatePrintSheet();
+    updateJudgeBlink();
+  }
+  function renderPresets(){
+    const host=$("#presets"); host.innerHTML="";
+    PRESETS.forEach(p=>{
+      const b=document.createElement('button'); b.className='pill'; b.innerHTML=p.n+" <small class=muted>"+p.ml+"mL/"+p.a+"%</small>";
+      b.addEventListener('click',()=>{
+        const idx = items.findIndex(it => it.n===p.n && it.ml===p.ml && it.a===p.a);
+        if(idx>=0){ items[idx].q = (Number(items[idx].q)||0) + 1; }
+        else{ items.push({n:p.n,ml:p.ml,a:p.a,q:1}); }
+        updateCalc();
+      });
+      host.appendChild(b);
+    });
+  }
+  renderPresets(); updateCalc();
+
+
+// ========= 自由入力の追加処理 =========
+
+// ========= 自由入力の追加処理 =========
+const nameEl = document.getElementById('c_name');
+const mlEl   = document.getElementById('c_ml');
+const abvEl  = document.getElementById('c_abv');
+const qtyEl  = document.getElementById('c_qty');
+const addEl  = document.getElementById('c_add');
+
+function addCustomItem(){
+  const n = (nameEl.value || '').trim() || '自由入力';
+  const ml = parseFloat(mlEl.value);
+  const a  = parseFloat(abvEl.value);
+  let q    = parseInt(qtyEl.value, 10);
+
+  if (!isFinite(ml) || ml <= 0) { alert('容量(mL)を正しく入力してください'); mlEl.focus(); return; }
+  if (!isFinite(a)  || a  <= 0 || a > 100) { alert('度数(%)を正しく入力してください'); abvEl.focus(); return; }
+  if (!isFinite(q)  || q  <= 0) { q = 1; }
+
+  const idx = items.findIndex(it => it.n === n && it.ml === ml && it.a === a);
+  if (idx >= 0) items[idx].q = (Number(items[idx].q) || 0) + q;
+  else items.push({ n, ml, a, q });
+
+  updateCalc();
+  mlEl.value = ''; abvEl.value = ''; qtyEl.value = '1';
+}
+
+if (addEl) addEl.addEventListener('click', addCustomItem);
+[nameEl, mlEl, abvEl, qtyEl].forEach(el => {
+  if (!el) return;
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomItem(); }
+  });
+});
+
+
+
+
+  $("#btnCopy").addEventListener('click',()=>{
+    const t=`合計: ${$("#sumG").textContent} g / ${$("#sumD").textContent} ドリンク（1ドリンク=10g）`;
+    if(navigator.clipboard) navigator.clipboard.writeText(t).catch(()=>{});
+  });
+  $("#btnResetAll").addEventListener('click',()=>{ if(!confirm('すべてクリアしますか？'))return; items=[]; updateCalc(); });
+  $("#btnReflect").addEventListener('click',()=>{
+    const drinks=Math.round(parseFloat($("#sumD").textContent)||0); // 四捨五入
+    let idx=0;
+    if(drinks<=2) idx=0; else if(drinks<=4) idx=1; else if(drinks<=6) idx=2; else if(drinks<=9) idx=3; else idx=4;
+    const inputs = $$('input[name="auditc_1"]');
+    if(inputs[idx]){ inputs[idx].checked = true; auditC[1] = Number(inputs[idx].value); updateAuditCScore(); }
+    // 反映後：AUDIT-Cセクションの先頭へスクロールアップ
+    const sec = document.getElementById('auditc-section');
+    if(sec){ sec.scrollIntoView({behavior:'smooth', block:'start'}); }
+  });
+
+  // Toggle calc from both buttons
+  const details=$("#calcDetails");
+  $("#toggleCalc").addEventListener('click', ()=>{ details.open = !details.open; if(details.open){ details.scrollIntoView({behavior:'smooth', block:'start'});} });
+  $("#toggleCalc2").addEventListener('click', ()=>{ details.open = !details.open; if(details.open){ details.scrollIntoView({behavior:'smooth', block:'start'});} });
+
+  // ----- Memo & History
+  const KEY_AUTOSAVE="audit_memo_autosave", KEY_RECORDS="audit_records";
+  const memoEl=$("#memo"), saveInd=$("#saveState"), historyBody=$("#historyBody");
+  let tid=null;
+  memoEl.value=""; try{ localStorage.setItem(KEY_AUTOSAVE,""); }catch(_){}
+  memoEl.addEventListener('input', ()=>{
+    if(tid) clearTimeout(tid);
+    tid=setTimeout(()=>{ try{ localStorage.setItem(KEY_AUTOSAVE, memoEl.value||""); saveInd.textContent="保存済み（自動）"; }catch(_){ } updatePrintSheet(); }, 350);
+  });
+  function getRecords(){ try{ return JSON.parse(localStorage.getItem(KEY_RECORDS)||"[]"); }catch(_){ return []; } }
+  function setRecords(a){ localStorage.setItem(KEY_RECORDS, JSON.stringify(a)); }
+  function collectSnapshot(){
+    const drinks = parseFloat($("#sumD").textContent)||0;
+    const grams = parseFloat($("#sumG").textContent)||0;
+    return { ts:Date.now(), sex: $("#btnMale").classList.contains('selected')?'male':($("#btnFemale").classList.contains('selected')?'female':''),
+      auditc_score: sum(auditC), audit_total: sum(auditC)+sum(auditRest),
+      judge: $("#auditfull-judge").textContent||"", drinks:Number(drinks.toFixed(2)), grams:Number(grams.toFixed(1)), memo: (memoEl.value||""),
+      q1: auditC[0], q2: auditC[1], q3: auditC[2],
+      q4: auditRest[0], q5: auditRest[1], q6: auditRest[2], q7: auditRest[3], q8: auditRest[4], q9: auditRest[5], q10: auditRest[6]
+    };
+  }
+  
+  function openMemoPopup(rec){
+    try{
+      const w = window.open('', '_blank', 'width=820,height=720');
+      if(!w){ alert('ポップアップがブロックされました。ブラウザ設定で許可してください。'); return; }
+      const pad = n=>String(n).padStart(2,'0');
+      const d = rec.ts ? new Date(rec.ts) : new Date();
+      const ts = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const sexLabel = rec.sex==='male'?'男性':(rec.sex==='female'?'女性':'—');
+
+      const fields = [
+        ['日時', ts],
+        ['性別', sexLabel],
+        ['AUDIT-C', rec.auditc_score ?? '—'],
+        ['AUDIT合計', rec.audit_total ?? '—'],
+        ['判定', rec.judge || '—'],
+        ['総飲酒量', `${(rec.grams??0).toFixed ? rec.grams.toFixed(1) : rec.grams} g / ${(rec.drinks??0).toFixed ? rec.drinks.toFixed(2) : rec.drinks} ドリンク`]
+      ];
+
+      function tdRow(k,v){ return `<tr><td class="k">${k}</td><td>${v}</td></tr>`; }
+
+      const qRows = (()=>{
+        const q = ['q1','q2','q3','q4','q5','q6','q7','q8','q9','q10'];
+        const labels = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10'];
+        let out = '';
+        for(let i=0;i<q.length;i++){
+          const val = (rec[q[i]]==null || rec[q[i]]==='') ? '—' : rec[q[i]];
+          out += tdRow(labels[i], val);
+        }
+        return out;
+      })();
+
+      const memoHtml = (rec.memo||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r?\n/g,'<br>');
+
+      const html = `<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<title>保存内容の詳細</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif;margin:0;background:#f8fafc;color:#0f172a}
+  header{padding:14px 16px;border-bottom:1px solid #e2e8f0;background:#ffffff;position:sticky;top:0}
+  h1{font-size:1.1rem;margin:0}
+  main{padding:14px 16px}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:0.95rem}
+  td{border-bottom:1px solid #e2e8f0;padding:8px 6px;vertical-align:top}
+  td.k{width:32%;font-weight:700;background:#f8fafc}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
+  pre, .memo{white-space:pre-wrap;word-break:break-word}
+</style>
+</head><body>
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <h1>保存内容の詳細</h1>
+    <div class="btns">
+      <button id="btnPrint">印刷</button>
+      <button id="btnClose">閉じる</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="card">
+    <table>
+      ${fields.map(([k,v])=>tdRow(k, v)).join('')}
+    </table>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem;margin:0 0 6px;">各設問の点数</h2>
+    <table>
+      ${qRows}
+    </table>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem;margin:0 0 6px;">面談メモ</h2>
+    <div class="memo">${memoHtml || '—'}</div>
+  </div>
+</main>
+<script>
+  document.getElementById('btnPrint').addEventListener('click', ()=>{ window.print(); });
+  document.getElementById('btnClose').addEventListener('click', ()=>{ window.close(); });
+<\/script>
+</body></html>`;
+
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      try{ w.focus(); }catch(_){ }
+      // Fallback: if blank, navigate to data URL
+      try{
+        setTimeout(()=>{
+          if(!w.document || !w.document.body || !w.document.body.childNodes || w.document.body.childNodes.length===0){
+            const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+            w.location.replace(dataUrl);
+          }
+        }, 30);
+      }catch(__){ /* ignore */ }
+    }catch(e){
+      alert('ポップアップの生成でエラーが発生しました: '+ e);
+    }
+  }
+
+function renderHistory(){
+    const arr=getRecords(); historyBody.innerHTML="";
+    if(!arr.length){ const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=8; td.className='muted'; td.textContent='保存はまだありません。'; tr.appendChild(td); historyBody.appendChild(tr); return; }
+    arr.forEach((r,idx)=>{
+      const tr=document.createElement('tr');
+      function td(t){ const td=document.createElement('td'); td.textContent=t; return td; }
+      function fmt(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+      tr.appendChild(td(fmt(r.ts)));
+      tr.appendChild(td(r.sex=='male'?'男性':(r.sex=='female'?'女性':'—')));
+      tr.appendChild(td(r.auditc_score??'—'));
+      tr.appendChild(td(r.audit_total??'—'));
+      tr.appendChild(td(r.judge||'—'));
+      tr.appendChild(td((r.drinks??0).toFixed(2)));
+      tr.appendChild(td((r.grams??0).toFixed(1)));
+      const tdOps=document.createElement('td');
+      const open=document.createElement('button'); open.className='btn'; open.textContent='メモを開く';
+      open.addEventListener('click', ()=>{ openMemoPopup(r); });
+      const del=document.createElement('button'); del.className='btn'; del.textContent='削除';
+      del.addEventListener('click', ()=>{ const a=getRecords(); if(!confirm('この履歴を削除しますか？')) return; a.splice(idx,1); setRecords(a); renderHistory(); });
+      tdOps.append(open, del); tr.appendChild(tdOps);
+      historyBody.appendChild(tr);
+    });
+  }
+  renderHistory();
+  $("#saveRecord").addEventListener('click', ()=>{ const rec=collectSnapshot(); const a=getRecords(); a.unshift(rec); setRecords(a); saveInd.textContent="保存しました（履歴）"; renderHistory(); });
+  $("#clearAll").addEventListener('click', ()=>{ if(!confirm('履歴をすべて削除しますか？')) return; setRecords([]); renderHistory(); });
+  $("#exportCSV").addEventListener('click', ()=>{
+    const a = getRecords();
+    // Header
+    const header = ['ts','sex','auditc_score','audit_total','judge','drinks','grams','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','memo'];
+
+    // CSV escape: double quotes -> "", wrap if contains quote/comma/newline
+    const esc = (v)=>{
+      if(v===null || v===undefined) v='';
+      v = String(v);
+      if(v.includes('"')) v = v.replace(/"/g,'""');
+      if(/[",\r\n]/.test(v)) v = `"${v}"`;
+      return v;
+    };
+
+    const lines = [];
+    lines.push(header.map(esc).join(','));
+
+    a.forEach(r=>{
+      const row = [
+        new Date(r.ts).toISOString(),
+        r.sex,
+        r.auditc_score,
+        r.audit_total,
+        (r.judge||''),
+        r.drinks,
+        r.grams,
+        r.q1??'',
+        r.q2??'',
+        r.q3??'',
+        r.q4??'',
+        r.q5??'',
+        r.q6??'',
+        r.q7??'',
+        r.q8??'',
+        r.q9??'',
+        r.q10??'',
+        (r.memo||'')
+      ];
+      lines.push(row.map(esc).join(','));
+    });
+
+    // Prepend UTF-8 BOM for Excel
+    const bom = '\ufeff';
+    const csv = bom + lines.join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const an = document.createElement('a');
+    an.href = url;
+    an.download = 'audit_history.csv';
+    an.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+});
+
+  // ----- Reset
+  function resetAll(){
+    updateJudgeBlink();
+    judgeTriggered=false;
+    try{ const rec=collectSnapshot(); const a=getRecords(); a.unshift(rec); setRecords(a); renderHistory(); const sInd=$("#saveState"); if(sInd){ sInd.textContent="リセット時にメモを自動保存しました（履歴）"; } }catch(e){}
+    sex=''; $("#btnMale").classList.remove('selected'); $("#btnFemale").classList.remove('selected');
+    updateSexStatus(); updateSexBlink();
+    [0,1,2].forEach(i=>{ auditC[i]=null; $$(`input[name="auditc_${i}"]`).forEach(r=>r.checked=false); });
+    for(let i=0;i<7;i++){ auditRest[i]=null; $$(`input[name="auditrest_${i}"]`).forEach(r=>r.checked=false); }
+    $("#auditc-score").textContent='0'; $("#auditc-note").textContent=''; $("#auditc-result").classList.add('hidden');
+    $("#auditfull-score").textContent='—'; $("#auditfull-judge").textContent='ー'; $("#auditfull-result").classList.add('hidden');
+    $("#audit-full-section").classList.add('hidden');
+    $("#to-full").classList.remove('blink');
+    items=[]; updateCalc();
+    try{ $("#memo").value=""; localStorage.setItem(KEY_AUTOSAVE,""); }catch(_){}
+    updatePrintSheet();
+    updateJudgeBlink();
+  }
+  $("#reset").addEventListener('click', resetAll);
+ $("#reset2").addEventListener('click', ()=>{
+  resetAll();
+  const details = document.getElementById('calcDetails'); // 既存の const details を使ってもOK
+  if (details) details.open = false;                      // ← クイック計算を閉じる
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+  // ----- Show full audit & scroll to Q4
+  $("#to-full").addEventListener('click', ()=>{
+    const sec=$("#audit-full-section"); sec.classList.remove("hidden");
+    const q4=$("#q4"); (q4||sec).scrollIntoView({behavior:'smooth', block:'start'});
+    $("#to-full").classList.remove('blink');
+  });
+
+  
+  
+  // ----- Helper: blink 判定ボタン if all answered
+  function updateJudgeBlink(){
+    const btn = document.getElementById('btnJudge');
+    if(!btn) return;
+    const ready = allAns(auditC) && allAns(auditRest);
+    btn.classList.toggle('blink', ready && !judgeTriggered);
+  }
+
+// ----- Judge button: show result only when pressed
+  const btnJudge = document.getElementById('btnJudge');
+  if(btnJudge){
+    btnJudge.addEventListener('click', ()=>{
+      const ready = allAns(auditC) && allAns(auditRest);
+      if(!ready){
+        const firstMissingC = auditC.findIndex(v=>v==null);
+        if(firstMissingC>=0){
+          const t = document.querySelector(`#auditc li.q:nth-child(${firstMissingC+1})`);
+          if(t) t.scrollIntoView({behavior:'smooth', block:'start'});
+          alert('未回答の項目があります（AUDIT-C Q' + (firstMissingC+1) + ' など）。すべて回答してください。');
+          return;
+        }
+        const firstMissingR = auditRest.findIndex(v=>v==null);
+        if(firstMissingR>=0){
+          const q = document.querySelector(`#audit-rest li.q:nth-child(${firstMissingR+1})`);
+          if(q) q.scrollIntoView({behavior:'smooth', block:'start'});
+          alert('未回答の項目があります（Q' + (firstMissingR+4) + '）。すべて回答してください。');
+          return;
+        }
+      }
+      judgeTriggered = true;
+      updateAuditFullScore();
+      updateJudgeBlink();
+      const res = document.getElementById('auditfull-result');
+      if(res){
+        res.scrollIntoView({behavior:'smooth', block:'nearest'});
+        setTimeout(()=>{ try{ window.scrollBy({top:120, left:0, behavior:'smooth'}); }catch(_){ } }, 250);
+      }
+    });
+  }
+
+  // ----- Print concise sheet
+  function judgeLabel(total){ if(total<8) return "危険の少ない飲酒"; if(total<=14) return "危険な飲酒"; if(total<=19) return "有害な飲酒"; return "アルコール依存症の可能性が高い"; }
+  function updatePrintSheet(){
+    const pad=n=>String(n).padStart(2,'0'); const d=new Date(); const ts=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const sexLabel = $("#btnMale").classList.contains('selected') ? '男性' : ($("#btnFemale").classList.contains('selected') ? '女性' : '未選択');
+    const cScore = $("#auditc-score").textContent||'0';
+    const total = $("#auditfull-score").textContent||cScore;
+    const judge = $("#auditfull-judge").textContent;
+    const g = $("#sumG").textContent||'0.0';
+    const dks = $("#sumD").textContent||'0.00';
+    const adviceMap = {
+      "危険の少ない飲酒":"いいですね。年1回チェックしましょう。",
+      "危険な飲酒":"アルコールによる健康障害がおきる可能性があるので、お酒を減らせると良いでしょう。",
+      "有害な飲酒":"アルコールによる健康障害が起きている可能性が高いようです。アルコール依存症の可能性があります。お酒を減らしましょう。むずかしいと感じた場合は、医療機関に相談しましょう。",
+      "アルコール依存症の可能性が高い":"アルコール依存症の可能性が高いため、専門医への受診が必要です。"
+    };
+    const adv = adviceMap[judge] || "";
+    $("#printSheetBody").innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb"><strong>日時</strong></td><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb">${ts}</td></tr>
+        <tr><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb"><strong>性別</strong></td><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb">${sexLabel}</td></tr>
+        <tr><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb"><strong>AUDIT-C</strong></td><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb">${cScore}</td></tr>
+        <tr><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb"><strong>AUDIT合計</strong></td><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb">${total}</td></tr>
+        <tr><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb"><strong>判定</strong></td><td style="padding:6px 4px;border-bottom:1px solid #e5e7eb">${judge||'—'}</td></tr>
+        <tr><td style="padding:6px 4px"><strong>総飲酒量</strong></td><td style="padding:6px 4px">${g} g / ${dks} ドリンク</td></tr>
+      </table>
+      <div style="margin-top:10px;padding:8px;border:1px solid #e5e7eb;border-radius:10px;background:#fffdf5">
+        <div style="font-weight:700;margin-bottom:4px">アドバイス</div>
+        <div style="font-size:13px;line-height:1.4">${adv}</div>
+      </div>`;
+  }
+  $("#btnPrintPage").addEventListener('click', ()=>{ updatePrintSheet(); window.print(); });
+
+  // Init
+  updateSexStatus(); updateSexBlink(); updatePrintSheet();
+})();</script>
+</body>
+</html>
