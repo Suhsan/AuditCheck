@@ -354,6 +354,15 @@ details[open] summary{color:var(--blue)}
   const $=q=>document.querySelector(q), $$=q=>Array.from(document.querySelectorAll(q));
 
   // ----- State
+// 面接ごとのセッションID（同一人＝同一セッション）
+let sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+
+function newSession(){
+  sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
   let sex=''; // 'male'|'female'|''
   const auditC=[null,null,null];
   const auditRest=[null,null,null,null,null,null,null];
@@ -624,7 +633,9 @@ if (addEl) addEl.addEventListener('click', addCustomItem);
   function collectSnapshot(){
     const drinks = parseFloat($("#sumD").textContent)||0;
     const grams = parseFloat($("#sumG").textContent)||0;
-    return { ts:Date.now(), sex: $("#btnMale").classList.contains('selected')?'male':($("#btnFemale").classList.contains('selected')?'female':''),
+
+    return { sid: sessionId, ts:Date.now(), sex: $("#btnMale").classList.contains('selected')?'male':($("#btnFemale").classList.contains('selected')?'female':''),
+
       auditc_score: sum(auditC), audit_total: sum(auditC)+sum(auditRest),
       judge: $("#auditfull-judge").textContent||"", drinks:Number(drinks.toFixed(2)), grams:Number(grams.toFixed(1)), memo: (memoEl.value||""),
       q1: auditC[0], q2: auditC[1], q3: auditC[2],
@@ -758,8 +769,26 @@ function renderHistory(){
     });
   }
   renderHistory();
-  $("#saveRecord").addEventListener('click', ()=>{ const rec=collectSnapshot(); const a=getRecords(); a.unshift(rec); setRecords(a); saveInd.textContent="保存しました（履歴）"; renderHistory(); });
-  $("#clearAll").addEventListener('click', ()=>{ if(!confirm('履歴をすべて削除しますか？')) return; setRecords([]); renderHistory(); });
+
+$("#saveRecord").addEventListener('click', ()=>{
+  const rec = collectSnapshot();
+  const a = getRecords();
+  const idx = a.findIndex(r => r && r.sid === rec.sid);
+
+  if (idx >= 0) {
+    // 既に保存済み（同一人） → 元の時刻は保持して上書き
+    const keepTs = a[idx].ts;
+    a[idx] = { ...rec, ts: keepTs };
+  } else {
+    // 初回保存
+    a.unshift(rec);
+  }
+  setRecords(a);
+  saveInd.textContent = "保存しました（履歴）";
+  renderHistory();
+});
+
+
   $("#exportCSV").addEventListener('click', ()=>{
     const a = getRecords();
     // Header
@@ -815,9 +844,32 @@ function renderHistory(){
 
   // ----- Reset
   function resetAll(){
+   
     updateJudgeBlink();
     judgeTriggered=false;
-    try{ const rec=collectSnapshot(); const a=getRecords(); a.unshift(rec); setRecords(a); renderHistory(); const sInd=$("#saveState"); if(sInd){ sInd.textContent="リセット時にメモを自動保存しました（履歴）"; } }catch(e){}
+ 
+try{
+  const rec = collectSnapshot();
+  const a = getRecords();
+  const idx = a.findIndex(r => r && r.sid === rec.sid);
+
+  if (idx >= 0) {
+    // 既に「結果＋メモ…」で保存済み → 上書き
+    const keepTs = a[idx].ts;
+    a[idx] = { ...rec, ts: keepTs };
+  } else {
+    // 未保存だった → 新規として保存
+    a.unshift(rec);
+  }
+  setRecords(a);
+  renderHistory();
+  const sInd = $("#saveState");
+  if(sInd){ sInd.textContent="リセット時に履歴へ保存しました（同一セッションは上書き）"; }
+}catch(e){}
+
+
+
+
     sex=''; $("#btnMale").classList.remove('selected'); $("#btnFemale").classList.remove('selected');
     updateSexStatus(); updateSexBlink();
     [0,1,2].forEach(i=>{ auditC[i]=null; $$(`input[name="auditc_${i}"]`).forEach(r=>r.checked=false); });
@@ -828,6 +880,9 @@ function renderHistory(){
     $("#to-full").classList.remove('blink');
     items=[]; updateCalc();
     try{ $("#memo").value=""; localStorage.setItem(KEY_AUTOSAVE,""); }catch(_){}
+
+newSession(); // ← リセット完了後に新セッション開始（次の人用）
+
     updatePrintSheet();
     updateJudgeBlink();
   }
