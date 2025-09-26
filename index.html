@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>AUDIT/AUDIT-C（フル機能版 ver.0.11f）</title>
+<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.11g）</title>
 <style>
 :root{
   --bg:#ffffff; --fg:#111827; --muted:#6b7280; --border:#e5e7eb; --subtle:#f9fafb;
@@ -112,7 +112,7 @@ details[open] summary{color:var(--blue)}
 <body>
 <div class="container">
   <header>
-    <h1>AUDIT / AUDIT-C（フル機能版 ver.0.11f）</h1>
+    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.11g）</h1>
     <div class="row topbar">
       <button id="btnMale" class="btn male" type="button" aria-pressed="false">男性</button>
       <button id="btnFemale" class="btn female" type="button" aria-pressed="false">女性</button>
@@ -146,7 +146,7 @@ details[open] summary{color:var(--blue)}
           </div>
         </li>
         <li class="q">
-          <p><strong>Q2.</strong> 飲酒するとき、通常どのくらいの量を飲みますか<br><small class='muted'>※参考「ドリンク数」を参照</small></p>
+          <p><strong>Q2.</strong> 飲酒するとき、通常どのくらいの量を飲みますか<br><small class='muted'></small></p>
           <div class="options">
             <label class="opt small"><input type="radio" name="auditc_1" value="0"> 1〜2ドリンク</label>
             <label class="opt small"><input type="radio" name="auditc_1" value="1"> 3〜4ドリンク</label>
@@ -169,7 +169,7 @@ details[open] summary{color:var(--blue)}
 
       <!-- Buttons under Q3 -->
       <div class="row" style="gap:8px; margin:10px 0 6px;">
-        <button id="toggleCalc2" class="btn orange" type="button">ドリンク数を簡単に計算（内蔵ツール）</button>
+        <button id="toggleCalc2" class="btn orange" type="button">ドリンク数を簡単に計算</button>
         <button id="to-full" class="btn primary" type="button">フルAUDIT（10問）に進む</button>
         <button id="reset" class="btn" type="button">リセット</button>
       </div>
@@ -185,7 +185,7 @@ details[open] summary{color:var(--blue)}
           <div class="row">
             <button id="btnCopy" class="btn">合計をコピー</button>
             <button id="btnReflect" class="btn orange">Q2へ反映</button>
-            <button id="btnResetAll" class="btn">全クリア</button>
+            <button id="btnResetAll" class="btn">クリア</button>
           </div>
         </div>
         <div class="muted">同じプリセットを押すと本数が増えます。下の自由入力からも追加できます。</div>
