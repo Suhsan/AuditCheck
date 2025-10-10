@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.11g）</title>
+<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.11h）</title>
 <style>
 :root{
   --bg:#ffffff; --fg:#111827; --muted:#6b7280; --border:#e5e7eb; --subtle:#f9fafb;
@@ -112,7 +112,7 @@ details[open] summary{color:var(--blue)}
 <body>
 <div class="container">
   <header>
-    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.11g）</h1>
+    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.11h）</h1>
     <div class="row topbar">
       <button id="btnMale" class="btn male" type="button" aria-pressed="false">男性</button>
       <button id="btnFemale" class="btn female" type="button" aria-pressed="false">女性</button>
@@ -498,8 +498,11 @@ function newSession(){
     {n:"酎ハイ 350mL",ml:350,a:7},{n:"酎ハイ 500mL",ml:500,a:7},
     {n:"ストロングチューハイ 350mL",ml:350,a:9},{n:"ストロングチューハイ 500mL",ml:500,a:9},
     {n:"日本酒 1合",ml:180,a:15},{n:"ワイン グラス",ml:120,a:12},
+    {n:"ワイン ハーフボトル",ml:375,a:12},{n:"ワイン フルボトル",ml:750,a:12},
     {n:"焼酎 25%原酒60mL",ml:60,a:25},
     {n:"焼酎 20%原酒100mL", ml:100, a:20},{n:"焼酎 25%原酒100mL", ml:100, a:25},
+    {n:"焼酎 20%原酒180mL", ml:180, a:20},{n:"焼酎 25%原酒180mL", ml:180, a:25},
+    {n:"焼酎 20%原酒220mL", ml:220, a:20},{n:"焼酎 25%原酒220mL", ml:220, a:25},
     {n:"ウイスキー 30mL",ml:30,a:40}
   ];
   let items=[];
