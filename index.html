@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.11h）</title>
+<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.12b）</title>
 <style>
 :root{
   --bg:#ffffff; --fg:#111827; --muted:#6b7280; --border:#e5e7eb; --subtle:#f9fafb;
@@ -52,9 +52,25 @@ ol.q-list{list-style:none;padding-left:0;display:grid;gap:10px}
 /* To-full blink */
 @keyframes blinkFade{0%,100%{opacity:1}50%{opacity:.35}}.blink{animation:blinkFade 1s linear infinite}
 
+/* Preset button flash effect */
+@keyframes flashPreset {
+  0% { background-color: var(--orange-border); transform: scale(0.92); }
+  100% { background-color: #fff; transform: scale(1); }
+}
+.flash-effect {
+  animation: flashPreset 0.25s ease-out forwards;
+}
+
 /* calc */
 .calc-wrap{margin-top:8px}
-.pill{border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer;}
+.pill{
+  border:1px solid var(--border); background:#fff; border-radius:999px; padding:6px 10px; 
+  font-weight:700; cursor:pointer; 
+  user-select: none; -webkit-tap-highlight-color: transparent; /* モバイルでの連打対策 */
+  transition: transform 0.05s;
+}
+.pill:active { transform: scale(0.95); background-color: var(--subtle); }
+
 .table{width:100%;border-collapse:collapse;font-size:.9rem;}
 .table th,.table td{border-bottom:1px solid var(--border);padding:6px 6px;text-align:left;}
 input[type=number],input[type=text]{border:1px solid var(--border);border-radius:10px;padding:6px 8px;font-size:.9rem;width:100%;box-sizing:border-box;}
@@ -70,11 +86,28 @@ details[open] summary{color:var(--blue)}
 .history th,.history td{border-bottom:1px solid var(--border);padding:6px;text-align:left;}
 .history-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
+/* Dialog (Modal) Styles */
+dialog {
+  border: none; border-radius: 12px; padding: 0;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  max-width: 90vw; width: 640px;
+  background: #fff; color: var(--fg);
+}
+dialog::backdrop { background: rgba(0,0,0,0.5); }
+.dialog-content { padding: 20px; max-height: 80vh; overflow-y: auto; }
+.dialog-header { 
+  position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--border); 
+  padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; 
+}
+.dialog-header h3 { margin: 0; font-size: 1.1rem; }
+
 /* print concise one-pager */
 @media print{
   @page{size:A4 portrait;margin:12mm}
-  header, main .card:not(#printSheetCard), .topbar, .btn, details, .history, #calcDetails{display:none !important}
-  #printSheetCard{display:block !important}
+  header, main .card:not(#printSheetCard), .topbar, .btn, details, .history, #calcDetails, #judgeButtonWrap, section:not(#printSheetCard) {display:none !important}
+  #printSheetCard{display:block !important; border:none !important;}
+  /* Hide dialogs when printing */
+  dialog { display: none !important; }
 }
 #printSheetCard{display:none}
 
@@ -87,32 +120,25 @@ details[open] summary{color:var(--blue)}
   .card { border-radius: 12px; padding: 12px; }
   .btn { padding: 12px 14px; min-height: 44px; border-radius: 14px; }
   .score { font-size: 1.4rem; }
-  .options { grid-template-columns: 1fr !important; } /* 選択肢は縦一列 */
-  /* トップバー：性別ボタンとステータスを縦積み＆見やすく */
+  .options { grid-template-columns: 1fr !important; } 
   .topbar { gap: 10px; }
   .topbar .btn { flex: 1 1 48%; }
   #sexStatus { width: 100%; text-align: center; }
-  /* Q3直下のボタン群は縦積み（各ボタンフル幅） */
   #auditc-section .row > .btn { flex: 1 1 100%; }
-  /* プリセットは横スクロールしやすく */
   #presets { overflow-x: auto; white-space: nowrap; display: flex; gap: 8px; padding-bottom: 4px; }
   #presets .pill { display: inline-block; }
-  /* 計算テーブルは横スクロール */
   .table { font-size: 0.9rem; min-width: 560px; }
   .calc-wrap { margin-top: 6px; }
-  /* 履歴テーブルも横スクロール */
   #historyTable { min-width: 560px; }
-  /* 印刷ボタン行のボタンも折り返し */
   #audit-full-section .row .btn { flex: 1 1 48%; }
 }
-
-#presets .pill { background-color: #ffe4ef; } /* Light pink background for better visibility */
+#presets .pill { background-color: #ffe4ef; } 
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.11h）</h1>
+    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.12b）</h1>
     <div class="row topbar">
       <button id="btnMale" class="btn male" type="button" aria-pressed="false">男性</button>
       <button id="btnFemale" class="btn female" type="button" aria-pressed="false">女性</button>
@@ -190,6 +216,35 @@ details[open] summary{color:var(--blue)}
         </div>
         <div class="muted">同じプリセットを押すと本数が増えます。下の自由入力からも追加できます。</div>
         <div id="presets" class="row" style="gap:8px; margin:8px 0 10px;"></div>
+        <!-- Preset Editor -->
+        <details id="presetEditor" class="card" style="margin-top:8px;">
+          <summary>プリセットを編集（追加・削除・非表示）</summary>
+          <div class="small muted" style="margin:6px 0 10px;">
+            ここで追加したプリセットはブラウザに保存され、次回も表示されます。デフォルトのプリセットは「非表示」にできます。
+          </div>
+          <div class="row" style="gap:8px; grid-template-columns: 1.2fr 0.8fr 0.8fr auto; display:grid; align-items:center;">
+            <input id="p_name" type="text" placeholder="プリセット名（例：ハイボール 350mL）" />
+            <input id="p_ml"   type="number" min="1" step="1" placeholder="容量 mL" />
+            <input id="p_abv"  type="number" min="0" max="100" step="0.1" placeholder="度数 %" />
+            <button id="p_add" class="btn">プリセットを追加</button>
+          </div>
+          <div class="row" style="gap:8px; margin:6px 0;">
+            <button id="p_clear_user" class="btn">ユーザー追加分を全削除</button>
+            <button id="p_clear_hidden" class="btn">非表示をすべて解除</button>
+          </div>
+          <div style="overflow-x:auto; margin-top:6px;">
+            <table class="table" id="presetActiveTable">
+              <thead>
+                <tr><th>名称</th><th>容量(mL)</th><th>度数(%)</th><th>種別</th><th>操作</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="muted small" style="margin-top:6px;">
+            ※「種別」… <strong>ユーザー</strong>=あなたが追加したもの（削除できます）／ <strong>デフォルト</strong>=元からあるもの（非表示にできます）
+          </div>
+        </details>
+
 
         <div class="card" style="margin:8px 0;">
           <h3 style="margin:0 0 6px;">自由入力で追加</h3>
@@ -199,6 +254,7 @@ details[open] summary{color:var(--blue)}
             <input id="c_abv" type="number" min="0" max="100" step="0.1" placeholder="度数 %" />
             <input id="c_qty" type="number" min="1" step="1" value="1" placeholder="本数" />
             <button id="c_add" class="btn">追加</button>
+            <button id="c_savePreset" class="btn">↑をプリセット保存</button>
           </div>
           <div class="muted" style="margin-top:6px;">※純アルコール量(g) = mL × (度数% / 100) × 0.8</div>
         </div>
@@ -347,6 +403,21 @@ details[open] summary{color:var(--blue)}
       <div id="printSheetBody" class="small">（印刷時のみ出力・自動更新）</div>
     </section>
   </main>
+
+  <!-- Modal for History Details -->
+  <dialog id="historyDialog">
+    <div class="dialog-header">
+      <h3>保存内容の詳細</h3>
+      <div class="row" style="gap:8px;">
+        <button id="btnDialogPrint" class="btn small">印刷</button>
+        <button id="btnDialogClose" class="btn small">閉じる</button>
+      </div>
+    </div>
+    <div class="dialog-content" id="historyDialogBody">
+      <!-- Content injected by JS -->
+    </div>
+  </dialog>
+
 </div>
 
 <script>
@@ -354,19 +425,18 @@ details[open] summary{color:var(--blue)}
   const $=q=>document.querySelector(q), $$=q=>Array.from(document.querySelectorAll(q));
 
   // ----- State
-// 面接ごとのセッションID（同一人＝同一セッション）
-let sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
-  : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-
-function newSession(){
-  sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+  let sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
     : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-}
 
-  let sex=''; // 'male'|'female'|''
+  function newSession(){
+    sessionId = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : 'sess-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
+
+  let sex=''; 
   const auditC=[null,null,null];
   const auditRest=[null,null,null,null,null,null,null];
-  let judgeTriggered=false; // 「判定する」ボタンが押されたらtrue
+  let judgeTriggered=false; 
 
   function sum(a){return a.reduce((x,y)=>x+(y==null?0:y),0);}
   function allAns(a){return a.every(v=>v!=null);}
@@ -415,12 +485,36 @@ function newSession(){
     }
   }
   function updateAuditCScore(){
-    const score = sum(auditC);
+    const q1Value = auditC[0];
+    let score = sum(auditC);
+
+    // AUDIT-C 採点ルール修正: Q1で「飲まない」(0点)が選ばれた場合、Q2, Q3は強制的に0点として扱う
+    if (q1Value === 0) {
+      score = 0;
+      // Q2, Q3の実際の選択肢を一時的に無効化し、スコア計算を0点にする (auditC配列自体は変更しない)
+      if (auditC[1] !== 0) { 
+        // Q2の選択を「1-2ドリンク」以外にしている場合、0点として扱う
+        // UXを考慮し、Q2, Q3のチェックを強制的に外す操作は避けるが、スコアは0にする
+      }
+      if (auditC[2] !== 0) {
+        // Q3の選択を「ない」以外にしている場合、0点として扱う
+      }
+    } else {
+      score = sum(auditC);
+    }
+
     $("#auditc-score").textContent = score;
     $("#auditc-note").textContent = sex ? "（男≧5／女≧4で自動表示）" : "（性別未選択でも合計5以上で自動表示）";
     const resultBox = $("#auditc-result");
-    if(allAns(auditC)){
-      const high = (sex==='male' && score>=5) || (sex==='female' && score>=4) || (!sex && score>=5);
+    
+    // Q1が未回答の場合、結果ボックスを表示しない
+    if(auditC[0] == null){
+      resultBox.classList.add('hidden');
+    } else if(allAns(auditC) || q1Value === 0){
+      // Q1で「飲まない」を選んだ場合は、Q2, Q3が未回答でも判定に進める
+      const currentScore = (q1Value === 0) ? 0 : score;
+      const high = (sex==='male' && currentScore>=5) || (sex==='female' && currentScore>=4) || (!sex && currentScore>=5);
+      
       if(high){
         $("#to-full").classList.add('blink');
         resultBox.className="card";
@@ -430,7 +524,7 @@ function newSession(){
         resultBox.className="card";
         resultBox.innerHTML="<h3 class='mb-2'>AUDIT-C 判定</h3><p class='badge ok mb-2'>危険の少ない飲酒</p><p class='small'>年1回程度のチェックをおすすめします。</p>";
       }
-      maybeAutoShowFull(score);
+      maybeAutoShowFull(currentScore);
     }else{
       resultBox.classList.add('hidden');
     }
@@ -450,8 +544,13 @@ function newSession(){
     return "アルコール依存症の可能性が高いため、専門医への受診が必要です.";
   }
   function updateAuditFullScore(){
-  const score = sum(auditC)+sum(auditRest);
-  const ready = allAns(auditC) && allAns(auditRest);
+  // Q1=0点の場合はAUDIT-Cスコアを0として計算
+  const cScore = (auditC[0] === 0) ? 0 : sum(auditC);
+  const score = cScore + sum(auditRest);
+  
+  // Q1=0点の場合、Q4-Q10は未回答でも判定に進める
+  const ready = (allAns(auditC) && allAns(auditRest)) || (auditC[0] === 0 && allAns(auditRest.slice(0, 7)));
+
   updateJudgeBlink();
   const box = $("#auditfull-result");
 
@@ -465,7 +564,6 @@ function newSession(){
     return;
   }
   if(!judgeTriggered){
-    // 回答は揃っているが「判定する」が押されていない場合
     $("#auditfull-score").textContent = "—";
     $("#auditfull-judge").textContent="ー";
     $("#auditfull-judge").className="badge";
@@ -492,7 +590,7 @@ function newSession(){
 }
 
   // ----- Quick calc
-  const PRESETS=[
+  const DEFAULT_PRESETS=[
     {n:"ビール缶 350mL",ml:350,a:5},{n:"ビール缶 500mL",ml:500,a:5},
     {n:"生ビール中ジョッキ", ml:400, a:5},
     {n:"酎ハイ 350mL",ml:350,a:7},{n:"酎ハイ 500mL",ml:500,a:7},
@@ -505,6 +603,22 @@ function newSession(){
     {n:"焼酎 20%原酒220mL", ml:220, a:20},{n:"焼酎 25%原酒220mL", ml:220, a:25},
     {n:"ウイスキー 30mL",ml:30,a:40}
   ];
+  // ===== ユーザープリセット管理 =====
+  const KEY_USER_PRESETS = "audit_user_presets";
+  const KEY_HIDDEN_PRESETS = "audit_hidden_presets";
+  const keyOf = (p)=>`${p.n}|${p.ml}|${p.a}`;
+  function loadUserPresets(){ try{ return JSON.parse(localStorage.getItem(KEY_USER_PRESETS)||"[]"); }catch(_){ return []; } }
+  function saveUserPresets(arr){ try{ localStorage.setItem(KEY_USER_PRESETS, JSON.stringify(arr)); }catch(_){ } }
+  function loadHiddenKeys(){ try{ return new Set(JSON.parse(localStorage.getItem(KEY_HIDDEN_PRESETS)||"[]")); }catch(_){ return new Set(); } }
+  function saveHiddenKeys(set){ try{ localStorage.setItem(KEY_HIDDEN_PRESETS, JSON.stringify(Array.from(set))); }catch(_){ } }
+  function getActivePresets(){
+    const user = loadUserPresets();
+    const hidden = loadHiddenKeys();
+    const map = new Map();
+    user.forEach(p=>{ map.set(keyOf(p), {...p}); });
+    DEFAULT_PRESETS.forEach(p=>{ const k = keyOf(p); if(!hidden.has(k) && !map.has(k)) map.set(k, {...p}); });
+    return Array.from(map.values());
+  }
   let items=[];
   const itemsBody=$("#itemsBody");
   function grams(ml,a){return ml*(a/100)*0.8;}
@@ -549,9 +663,18 @@ function newSession(){
   }
   function renderPresets(){
     const host=$("#presets"); host.innerHTML="";
-    PRESETS.forEach(p=>{
+    const list = getActivePresets();
+    list.forEach(p=>{
       const b=document.createElement('button'); b.className='pill'; b.innerHTML=p.n+" <small class=muted>"+p.ml+"mL/"+p.a+"%</small>";
       b.addEventListener('click',()=>{
+        // Visual feedback: Remove class -> Trigger reflow -> Add class
+        b.classList.remove('flash-effect');
+        void b.offsetWidth; 
+        b.classList.add('flash-effect');
+        
+        // Remove class after animation to keep clean DOM
+        setTimeout(() => b.classList.remove('flash-effect'), 300);
+
         const idx = items.findIndex(it => it.n===p.n && it.ml===p.ml && it.a===p.a);
         if(idx>=0){ items[idx].q = (Number(items[idx].q)||0) + 1; }
         else{ items.push({n:p.n,ml:p.ml,a:p.a,q:1}); }
@@ -561,45 +684,174 @@ function newSession(){
     });
   }
   renderPresets(); updateCalc();
+  // ===== プリセットエディタ配線 =====
+  const pName = document.getElementById('p_name');
+  const pMl   = document.getElementById('p_ml');
+  const pAbv  = document.getElementById('p_abv');
+  const pAdd  = document.getElementById('p_add');
+  const pClearUser   = document.getElementById('p_clear_user');
+  const pClearHidden = document.getElementById('p_clear_hidden');
+  const presetActiveTable = document.getElementById('presetActiveTable') ? document.getElementById('presetActiveTable').querySelector('tbody') : null;
+
+  function validatePreset(n, ml, a){
+    if(!n || !n.trim()) return '名称を入力してください';
+    if(!isFinite(ml) || ml <= 0) return '容量(mL)を正しく入力してください';
+    if(!isFinite(a)  || a <= 0 || a > 100) return '度数(%)を正しく入力してください';
+    return '';
+  }
+
+  function renderPresetTable(){
+    if(!presetActiveTable) return;
+    const user = loadUserPresets();
+    const hidden = loadHiddenKeys();
+    const active = getActivePresets();
+    presetActiveTable.innerHTML = '';
+    const userKeys = new Set(user.map(keyOf));
+    const defaultKeys = new Set(DEFAULT_PRESETS.map(keyOf));
+
+    active.forEach(p=>{
+      const tr = document.createElement('tr');
+      function td(){ return document.createElement('td'); }
+      const t1 = td(); t1.textContent = p.n; tr.appendChild(t1);
+      const t2 = td(); t2.textContent = p.ml; tr.appendChild(t2);
+      const t3 = td(); t3.textContent = p.a;  tr.appendChild(t3);
+      const isUser = userKeys.has(keyOf(p));
+      const t4 = td(); t4.textContent = isUser ? 'ユーザー' : (defaultKeys.has(keyOf(p)) ? 'デフォルト' : '—'); tr.appendChild(t4);
+      const t5 = td();
+      if(isUser){
+        const del = document.createElement('button'); del.className='btn'; del.textContent='削除';
+        del.addEventListener('click', ()=>{
+          const arr = loadUserPresets();
+          const idx = arr.findIndex(x=>keyOf(x)===keyOf(p));
+          if(idx>=0){ arr.splice(idx,1); saveUserPresets(arr); renderPresets(); renderPresetTable(); }
+        });
+        t5.appendChild(del);
+      }else{
+        const hide = document.createElement('button'); hide.className='btn'; hide.textContent='非表示';
+        hide.addEventListener('click', ()=>{
+          const h = loadHiddenKeys(); h.add(keyOf(p)); saveHiddenKeys(h); renderPresets(); renderPresetTable();
+        });
+        t5.appendChild(hide);
+      }
+      tr.appendChild(t5);
+      presetActiveTable.appendChild(tr);
+    });
+
+    // 非表示中のデフォルト一覧
+    const hiddenDefaults = DEFAULT_PRESETS.filter(dp => loadHiddenKeys().has(keyOf(dp)));
+    if(hiddenDefaults.length){
+      const trSep = document.createElement('tr');
+      const tdSep = document.createElement('td');
+      tdSep.colSpan=5; tdSep.innerHTML = '<div class="muted" style="margin-top:8px;">— 非表示にしているデフォルト —</div>';
+      trSep.appendChild(tdSep);
+      presetActiveTable.appendChild(trSep);
+      hiddenDefaults.forEach(p=>{
+        const tr = document.createElement('tr');
+        function td(){ return document.createElement('td'); }
+        tr.appendChild(td()).textContent = p.n;
+        tr.appendChild(td()).textContent = p.ml;
+        tr.appendChild(td()).textContent = p.a;
+        tr.appendChild(td()).textContent = 'デフォルト（非表示中）';
+        const t5 = td();
+        const unhide = document.createElement('button'); unhide.className='btn'; unhide.textContent='再表示';
+        unhide.addEventListener('click', ()=>{
+          const h = loadHiddenKeys(); h.delete(keyOf(p)); saveHiddenKeys(h); renderPresets(); renderPresetTable();
+        });
+        t5.appendChild(unhide);
+        tr.appendChild(t5);
+        presetActiveTable.appendChild(tr);
+      });
+    }
+  }
+
+  if(pAdd){
+    pAdd.addEventListener('click', ()=>{
+      const n = (pName.value||'').trim();
+      const ml = parseFloat(pMl.value);
+      const a  = parseFloat(pAbv.value);
+      const err = validatePreset(n, ml, a);
+      if(err){ alert(err); return; }
+      const arr = loadUserPresets();
+      const k = keyOf({n,ml,a});
+      if(arr.some(x=>keyOf(x)===k)){ alert('同じプリセットが既にあります'); return; }
+      arr.push({n,ml,a});
+      saveUserPresets(arr);
+      pName.value=''; pMl.value=''; pAbv.value='';
+      renderPresets(); renderPresetTable();
+    });
+  }
+  if(pClearUser){
+    pClearUser.addEventListener('click', ()=>{
+      if(!confirm('ユーザー追加分をすべて削除しますか？')) return;
+      saveUserPresets([]);
+      renderPresets(); renderPresetTable();
+    });
+  }
+  if(pClearHidden){
+    pClearHidden.addEventListener('click', ()=>{
+      if(!confirm('非表示設定をすべて解除しますか？')) return;
+      saveHiddenKeys(new Set());
+      renderPresets(); renderPresetTable();
+    });
+  }
+
+  // 自由入力からのプリセット保存ボタン
+  const btnSavePresetFromFree = document.getElementById('c_savePreset');
+  if(btnSavePresetFromFree){
+    btnSavePresetFromFree.addEventListener('click', ()=>{
+      const n = (document.getElementById('c_name').value || '').trim() || '自由入力';
+      const ml = parseFloat(document.getElementById('c_ml').value);
+      const a  = parseFloat(document.getElementById('c_abv').value);
+      const err = validatePreset(n, ml, a);
+      if(err){ alert(err); return; }
+      const arr = loadUserPresets();
+      const k = keyOf({n,ml,a});
+      if(arr.some(x=>keyOf(x)===k)){ alert('同じプリセットが既にあります'); return; }
+      arr.push({n,ml,a});
+      saveUserPresets(arr);
+      alert('プリセットに保存しました');
+      renderPresets(); renderPresetTable();
+    });
+  }
+
+  // 初回描画（詳細が閉じていても安全）
+  renderPresetTable();
 
 
-// ========= 自由入力の追加処理 =========
+  // ========= 自由入力の追加処理 (Corrected: Duplicate removed) =========
+  const nameEl = document.getElementById('c_name');
+  const mlEl   = document.getElementById('c_ml');
+  const abvEl  = document.getElementById('c_abv');
+  const qtyEl  = document.getElementById('c_qty');
+  const addEl  = document.getElementById('c_add');
 
-// ========= 自由入力の追加処理 =========
-const nameEl = document.getElementById('c_name');
-const mlEl   = document.getElementById('c_ml');
-const abvEl  = document.getElementById('c_abv');
-const qtyEl  = document.getElementById('c_qty');
-const addEl  = document.getElementById('c_add');
+  function addCustomItem(){
+    const n = (nameEl.value || '').trim() || '自由入力';
+    const ml = parseFloat(mlEl.value);
+    const a  = parseFloat(abvEl.value);
+    let q    = parseInt(qtyEl.value, 10);
 
-function addCustomItem(){
-  const n = (nameEl.value || '').trim() || '自由入力';
-  const ml = parseFloat(mlEl.value);
-  const a  = parseFloat(abvEl.value);
-  let q    = parseInt(qtyEl.value, 10);
+    if (!isFinite(ml) || ml <= 0) { alert('容量(mL)を正しく入力してください'); mlEl.focus(); return; }
+    if (!isFinite(a)  || a  <= 0 || a > 100) { alert('度数(%)を正しく入力してください'); abvEl.focus(); return; }
+    if (!isFinite(q)  || q  <= 0) { q = 1; }
 
-  if (!isFinite(ml) || ml <= 0) { alert('容量(mL)を正しく入力してください'); mlEl.focus(); return; }
-  if (!isFinite(a)  || a  <= 0 || a > 100) { alert('度数(%)を正しく入力してください'); abvEl.focus(); return; }
-  if (!isFinite(q)  || q  <= 0) { q = 1; }
+    const idx = items.findIndex(it => it.n === n && it.ml === ml && it.a === a);
+    if (idx >= 0) items[idx].q = (Number(items[idx].q) || 0) + q;
+    else items.push({ n, ml, a, q });
 
-  const idx = items.findIndex(it => it.n === n && it.ml === ml && it.a === a);
-  if (idx >= 0) items[idx].q = (Number(items[idx].q) || 0) + q;
-  else items.push({ n, ml, a, q });
+    updateCalc();
+    mlEl.value = ''; abvEl.value = ''; qtyEl.value = '1';
+  }
 
-  updateCalc();
-  mlEl.value = ''; abvEl.value = ''; qtyEl.value = '1';
-}
-
-if (addEl) addEl.addEventListener('click', addCustomItem);
-[nameEl, mlEl, abvEl, qtyEl].forEach(el => {
-  if (!el) return;
-  el.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addCustomItem(); }
+  if (addEl) addEl.addEventListener('click', addCustomItem);
+  [nameEl, mlEl, abvEl, qtyEl].forEach(el => {
+    if (!el) return;
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); addCustomItem(); }
+    });
   });
-});
 
-
-
+  // End of Custom Item Logic (Duplicate block removed)
 
   $("#btnCopy").addEventListener('click',()=>{
     const t=`合計: ${$("#sumG").textContent} g / ${$("#sumD").textContent} ドリンク（1ドリンク=10g）`;
@@ -607,11 +859,32 @@ if (addEl) addEl.addEventListener('click', addCustomItem);
   });
   $("#btnResetAll").addEventListener('click',()=>{ if(!confirm('すべてクリアしますか？'))return; items=[]; updateCalc(); });
   $("#btnReflect").addEventListener('click',()=>{
-    const drinks=Math.round(parseFloat($("#sumD").textContent)||0); // 四捨五入
-    let idx=0;
-    if(drinks<=2) idx=0; else if(drinks<=4) idx=1; else if(drinks<=6) idx=2; else if(drinks<=9) idx=3; else idx=4;
+    const drinks=Math.round(parseFloat($("#sumD").textContent)||0); 
+    
+    // Q1で「飲まない」を選択している場合は反映しない
+    if (auditC[0] === 0) {
+        alert("Q1で「飲まない」を選択しているため、飲酒量は反映されません。");
+        return;
+    }
+    
+    // ドリンク数が0の場合、Q2の「1〜2ドリンク」（0点）を選択
+    let targetIdx = 0; // デフォルトは「1〜2ドリンク」（0点）
+    
+    if (drinks > 0) {
+        if(drinks<=2) targetIdx=0; 
+        else if(drinks<=4) targetIdx=1; 
+        else if(drinks<=6) targetIdx=2; 
+        else if(drinks<=9) targetIdx=3; 
+        else targetIdx=4;
+    } 
+    // drinks <= 0 の場合でも、targetIdx=0 (1〜2ドリンク/0点)として選択を反映する
+
     const inputs = $$('input[name="auditc_1"]');
-    if(inputs[idx]){ inputs[idx].checked = true; auditC[1] = Number(inputs[idx].value); updateAuditCScore(); }
+    if(inputs[targetIdx]){ 
+      inputs[targetIdx].checked = true; 
+      auditC[1] = Number(inputs[targetIdx].value); 
+      updateAuditCScore(); 
+    }
     // 反映後：AUDIT-Cセクションの先頭へスクロールアップ
     const sec = document.getElementById('auditc-section');
     if(sec){ sec.scrollIntoView({behavior:'smooth', block:'start'}); }
@@ -636,116 +909,84 @@ if (addEl) addEl.addEventListener('click', addCustomItem);
   function collectSnapshot(){
     const drinks = parseFloat($("#sumD").textContent)||0;
     const grams = parseFloat($("#sumG").textContent)||0;
+    
+    // Q1=0点の場合、AUDIT-Cスコアは0、AUDIT合計はQ4-Q10のみを加算
+    const cScoreFinal = (auditC[0] === 0) ? 0 : sum(auditC);
+    const totalScoreFinal = cScoreFinal + sum(auditRest);
 
     return { sid: sessionId, ts:Date.now(), sex: $("#btnMale").classList.contains('selected')?'male':($("#btnFemale").classList.contains('selected')?'female':''),
-
-      auditc_score: sum(auditC), audit_total: sum(auditC)+sum(auditRest),
+      auditc_score: cScoreFinal, audit_total: totalScoreFinal,
       judge: $("#auditfull-judge").textContent||"", drinks:Number(drinks.toFixed(2)), grams:Number(grams.toFixed(1)), memo: (memoEl.value||""),
       q1: auditC[0], q2: auditC[1], q3: auditC[2],
       q4: auditRest[0], q5: auditRest[1], q6: auditRest[2], q7: auditRest[3], q8: auditRest[4], q9: auditRest[5], q10: auditRest[6]
     };
   }
   
+  // New Dialog Based Memo Opener
+  const historyDialog = document.getElementById('historyDialog');
+  const historyDialogBody = document.getElementById('historyDialogBody');
+  const btnDialogClose = document.getElementById('btnDialogClose');
+  const btnDialogPrint = document.getElementById('btnDialogPrint');
+
+  if(btnDialogClose){
+    btnDialogClose.addEventListener('click', ()=>{ historyDialog.close(); });
+  }
+  if(btnDialogPrint){
+    btnDialogPrint.addEventListener('click', ()=>{ window.print(); });
+  }
+
   function openMemoPopup(rec){
-    try{
-      const w = window.open('', '_blank', 'width=820,height=720');
-      if(!w){ alert('ポップアップがブロックされました。ブラウザ設定で許可してください。'); return; }
-      const pad = n=>String(n).padStart(2,'0');
-      const d = rec.ts ? new Date(rec.ts) : new Date();
-      const ts = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      const sexLabel = rec.sex==='male'?'男性':(rec.sex==='female'?'女性':'—');
+    if(!historyDialog || !historyDialogBody) return;
+    
+    const pad = n=>String(n).padStart(2,'0');
+    const d = rec.ts ? new Date(rec.ts) : new Date();
+    const ts = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const sexLabel = rec.sex==='male'?'男性':(rec.sex==='female'?'女性':'—');
 
-      const fields = [
-        ['日時', ts],
-        ['性別', sexLabel],
-        ['AUDIT-C', rec.auditc_score ?? '—'],
-        ['AUDIT合計', rec.audit_total ?? '—'],
-        ['判定', rec.judge || '—'],
-        ['総飲酒量', `${(rec.grams??0).toFixed ? rec.grams.toFixed(1) : rec.grams} g / ${(rec.drinks??0).toFixed ? rec.drinks.toFixed(2) : rec.drinks} ドリンク`]
-      ];
+    const fields = [
+      ['日時', ts],
+      ['性別', sexLabel],
+      ['AUDIT-C', rec.auditc_score ?? '—'],
+      ['AUDIT合計', rec.audit_total ?? '—'],
+      ['判定', rec.judge || '—'],
+      ['総飲酒量', `${(rec.grams??0).toFixed ? rec.grams.toFixed(1) : rec.grams} g / ${(rec.drinks??0).toFixed ? rec.drinks.toFixed(2) : rec.drinks} ドリンク`]
+    ];
 
-      function tdRow(k,v){ return `<tr><td class="k">${k}</td><td>${v}</td></tr>`; }
+    function tdRow(k,v){ return `<tr><td class="k" style="font-weight:700;background:#f8fafc;width:30%;padding:8px;border-bottom:1px solid #e2e8f0;">${k}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;">${v}</td></tr>`; }
 
-      const qRows = (()=>{
-        const q = ['q1','q2','q3','q4','q5','q6','q7','q8','q9','q10'];
-        const labels = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10'];
-        let out = '';
-        for(let i=0;i<q.length;i++){
-          const val = (rec[q[i]]==null || rec[q[i]]==='') ? '—' : rec[q[i]];
-          out += tdRow(labels[i], val);
-        }
-        return out;
-      })();
+    const qRows = (()=>{
+      const q = ['q1','q2','q3','q4','q5','q6','q7','q8','q9','q10'];
+      const labels = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10'];
+      let out = '';
+      for(let i=0;i<q.length;i++){
+        const val = (rec[q[i]]==null || rec[q[i]]==='') ? '—' : rec[q[i]];
+        out += tdRow(labels[i], val);
+      }
+      return out;
+    })();
 
-      const memoHtml = (rec.memo||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r?\n/g,'<br>');
+    const memoHtml = (rec.memo||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r?\n/g,'<br>');
 
-      const html = `<!DOCTYPE html>
-<html lang="ja"><head>
-<meta charset="utf-8">
-<title>保存内容の詳細</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif;margin:0;background:#f8fafc;color:#0f172a}
-  header{padding:14px 16px;border-bottom:1px solid #e2e8f0;background:#ffffff;position:sticky;top:0}
-  h1{font-size:1.1rem;margin:0}
-  main{padding:14px 16px}
-  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px}
-  table{width:100%;border-collapse:collapse;font-size:0.95rem}
-  td{border-bottom:1px solid #e2e8f0;padding:8px 6px;vertical-align:top}
-  td.k{width:32%;font-weight:700;background:#f8fafc}
-  .btns{display:flex;gap:8px;flex-wrap:wrap}
-  button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
-  pre, .memo{white-space:pre-wrap;word-break:break-word}
-</style>
-</head><body>
-<header>
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-    <h1>保存内容の詳細</h1>
-    <div class="btns">
-      <button id="btnPrint">印刷</button>
-      <button id="btnClose">閉じる</button>
-    </div>
-  </div>
-</header>
-<main>
-  <div class="card">
-    <table>
-      ${fields.map(([k,v])=>tdRow(k, v)).join('')}
-    </table>
-  </div>
-  <div class="card">
-    <h2 style="font-size:1rem;margin:0 0 6px;">各設問の点数</h2>
-    <table>
-      ${qRows}
-    </table>
-  </div>
-  <div class="card">
-    <h2 style="font-size:1rem;margin:0 0 6px;">面談メモ</h2>
-    <div class="memo">${memoHtml || '—'}</div>
-  </div>
-</main>
-<script>
-  document.getElementById('btnPrint').addEventListener('click', ()=>{ window.print(); });
-  document.getElementById('btnClose').addEventListener('click', ()=>{ window.close(); });
-<\/script>
-</body></html>`;
+    const html = `
+      <div class="card" style="box-shadow:none; margin-bottom:12px;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.95rem">
+          ${fields.map(([k,v])=>tdRow(k, v)).join('')}
+        </table>
+      </div>
+      <div class="card" style="box-shadow:none; margin-bottom:12px;">
+        <h4 style="margin:0 0 6px;">各設問の点数</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:0.95rem">
+          ${qRows}
+        </table>
+      </div>
+      <div class="card" style="box-shadow:none;">
+        <h4 style="margin:0 0 6px;">面談メモ</h4>
+        <div class="memo" style="white-space:pre-wrap;word-break:break-word">${memoHtml || '—'}</div>
+      </div>
+    `;
 
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-      try{ w.focus(); }catch(_){ }
-      // Fallback: if blank, navigate to data URL
-      try{
-        setTimeout(()=>{
-          if(!w.document || !w.document.body || !w.document.body.childNodes || w.document.body.childNodes.length===0){
-            const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-            w.location.replace(dataUrl);
-          }
-        }, 30);
-      }catch(__){ /* ignore */ }
-    }catch(e){
-      alert('ポップアップの生成でエラーが発生しました: '+ e);
-    }
+    historyDialogBody.innerHTML = html;
+    historyDialog.showModal();
   }
 
 function renderHistory(){
@@ -779,11 +1020,9 @@ $("#saveRecord").addEventListener('click', ()=>{
   const idx = a.findIndex(r => r && r.sid === rec.sid);
 
   if (idx >= 0) {
-    // 既に保存済み（同一人） → 元の時刻は保持して上書き
     const keepTs = a[idx].ts;
     a[idx] = { ...rec, ts: keepTs };
   } else {
-    // 初回保存
     a.unshift(rec);
   }
   setRecords(a);
@@ -794,10 +1033,7 @@ $("#saveRecord").addEventListener('click', ()=>{
 
   $("#exportCSV").addEventListener('click', ()=>{
     const a = getRecords();
-    // Header
     const header = ['ts','sex','auditc_score','audit_total','judge','drinks','grams','q1','q2','q3','q4','q5','q6','q7','q8','q9','q10','memo'];
-
-    // CSV escape: double quotes -> "", wrap if contains quote/comma/newline
     const esc = (v)=>{
       if(v===null || v===undefined) v='';
       v = String(v);
@@ -805,35 +1041,15 @@ $("#saveRecord").addEventListener('click', ()=>{
       if(/[",\r\n]/.test(v)) v = `"${v}"`;
       return v;
     };
-
     const lines = [];
     lines.push(header.map(esc).join(','));
-
     a.forEach(r=>{
       const row = [
-        new Date(r.ts).toISOString(),
-        r.sex,
-        r.auditc_score,
-        r.audit_total,
-        (r.judge||''),
-        r.drinks,
-        r.grams,
-        r.q1??'',
-        r.q2??'',
-        r.q3??'',
-        r.q4??'',
-        r.q5??'',
-        r.q6??'',
-        r.q7??'',
-        r.q8??'',
-        r.q9??'',
-        r.q10??'',
-        (r.memo||'')
+        new Date(r.ts).toISOString(), r.sex, r.auditc_score, r.audit_total, (r.judge||''), r.drinks, r.grams,
+        r.q1??'', r.q2??'', r.q3??'', r.q4??'', r.q5??'', r.q6??'', r.q7??'', r.q8??'', r.q9??'', r.q10??'', (r.memo||'')
       ];
       lines.push(row.map(esc).join(','));
     });
-
-    // Prepend UTF-8 BOM for Excel
     const bom = '\ufeff';
     const csv = bom + lines.join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
@@ -847,31 +1063,23 @@ $("#saveRecord").addEventListener('click', ()=>{
 
   // ----- Reset
   function resetAll(){
-   
     updateJudgeBlink();
     judgeTriggered=false;
- 
-try{
-  const rec = collectSnapshot();
-  const a = getRecords();
-  const idx = a.findIndex(r => r && r.sid === rec.sid);
-
-  if (idx >= 0) {
-    // 既に「結果＋メモ…」で保存済み → 上書き
-    const keepTs = a[idx].ts;
-    a[idx] = { ...rec, ts: keepTs };
-  } else {
-    // 未保存だった → 新規として保存
-    a.unshift(rec);
-  }
-  setRecords(a);
-  renderHistory();
-  const sInd = $("#saveState");
-  if(sInd){ sInd.textContent="リセット時に履歴へ保存しました（同一セッションは上書き）"; }
-}catch(e){}
-
-
-
+    try{
+      const rec = collectSnapshot();
+      const a = getRecords();
+      const idx = a.findIndex(r => r && r.sid === rec.sid);
+      if (idx >= 0) {
+        const keepTs = a[idx].ts;
+        a[idx] = { ...rec, ts: keepTs };
+      } else {
+        a.unshift(rec);
+      }
+      setRecords(a);
+      renderHistory();
+      const sInd = $("#saveState");
+      if(sInd){ sInd.textContent="リセット時に履歴へ保存しました（同一セッションは上書き）"; }
+    }catch(e){}
 
     sex=''; $("#btnMale").classList.remove('selected'); $("#btnFemale").classList.remove('selected');
     updateSexStatus(); updateSexBlink();
@@ -883,30 +1091,24 @@ try{
     $("#to-full").classList.remove('blink');
     items=[]; updateCalc();
     try{ $("#memo").value=""; localStorage.setItem(KEY_AUTOSAVE,""); }catch(_){}
-
-newSession(); // ← リセット完了後に新セッション開始（次の人用）
-
+    newSession(); 
     updatePrintSheet();
     updateJudgeBlink();
   }
   $("#reset").addEventListener('click', resetAll);
  $("#reset2").addEventListener('click', ()=>{
   resetAll();
-  const details = document.getElementById('calcDetails'); // 既存の const details を使ってもOK
-  if (details) details.open = false;                      // ← クイック計算を閉じる
+  const details = document.getElementById('calcDetails'); 
+  if (details) details.open = false; 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-  // ----- Show full audit & scroll to Q4
   $("#to-full").addEventListener('click', ()=>{
     const sec=$("#audit-full-section"); sec.classList.remove("hidden");
     const q4=$("#q4"); (q4||sec).scrollIntoView({behavior:'smooth', block:'start'});
     $("#to-full").classList.remove('blink');
   });
-
   
-  
-  // ----- Helper: blink 判定ボタン if all answered
   function updateJudgeBlink(){
     const btn = document.getElementById('btnJudge');
     if(!btn) return;
@@ -914,26 +1116,13 @@ newSession(); // ← リセット完了後に新セッション開始（次の�
     btn.classList.toggle('blink', ready && !judgeTriggered);
   }
 
-// ----- Judge button: show result only when pressed
   const btnJudge = document.getElementById('btnJudge');
   if(btnJudge){
     btnJudge.addEventListener('click', ()=>{
       const ready = allAns(auditC) && allAns(auditRest);
       if(!ready){
-        const firstMissingC = auditC.findIndex(v=>v==null);
-        if(firstMissingC>=0){
-          const t = document.querySelector(`#auditc li.q:nth-child(${firstMissingC+1})`);
-          if(t) t.scrollIntoView({behavior:'smooth', block:'start'});
-          alert('未回答の項目があります（AUDIT-C Q' + (firstMissingC+1) + ' など）。すべて回答してください。');
-          return;
-        }
-        const firstMissingR = auditRest.findIndex(v=>v==null);
-        if(firstMissingR>=0){
-          const q = document.querySelector(`#audit-rest li.q:nth-child(${firstMissingR+1})`);
-          if(q) q.scrollIntoView({behavior:'smooth', block:'start'});
-          alert('未回答の項目があります（Q' + (firstMissingR+4) + '）。すべて回答してください。');
-          return;
-        }
+        alert('未回答の項目があります。すべて回答してください。');
+        return;
       }
       judgeTriggered = true;
       updateAuditFullScore();
@@ -946,12 +1135,11 @@ newSession(); // ← リセット完了後に新セッション開始（次の�
     });
   }
 
-  // ----- Print concise sheet
   function judgeLabel(total){ if(total<8) return "危険の少ない飲酒"; if(total<=14) return "危険な飲酒"; if(total<=19) return "有害な飲酒"; return "アルコール依存症の可能性が高い"; }
   function updatePrintSheet(){
     const pad=n=>String(n).padStart(2,'0'); const d=new Date(); const ts=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     const sexLabel = $("#btnMale").classList.contains('selected') ? '男性' : ($("#btnFemale").classList.contains('selected') ? '女性' : '未選択');
-    const cScore = $("#auditc-score").textContent||'0';
+    const cScore = (auditC[0] === 0) ? 0 : ($("#auditc-score").textContent||'0');
     const total = $("#auditfull-score").textContent||cScore;
     const judge = $("#auditfull-judge").textContent;
     const g = $("#sumG").textContent||'0.0';
@@ -979,7 +1167,6 @@ newSession(); // ← リセット完了後に新セッション開始（次の�
   }
   $("#btnPrintPage").addEventListener('click', ()=>{ updatePrintSheet(); window.print(); });
 
-  // Init
   updateSexStatus(); updateSexBlink(); updatePrintSheet();
 })();</script>
 </body>
