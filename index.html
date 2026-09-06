@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.13d）</title>
+<title>ASK-A, Aichi Screening Kit for Alcohol（AUDIT実施用WEBアプリ ver.0.13e）</title>
 <style>
 :root{
   --bg:#ffffff; --fg:#111827; --muted:#6b7280; --border:#e5e7eb; --subtle:#f9fafb;
@@ -25,6 +25,10 @@ h3{font-size:1rem;margin:10px 0 6px;}
 .btn.orange{background:var(--orange);color:#fff;border-color:var(--orange)}
 .btn:disabled{opacity:.4;cursor:default;}
 .preset-actions{display:flex;gap:6px;align-items:center;white-space:nowrap;}
+#presetActiveTable tr.preset-moving > td{background:#fff0c2;}
+#presetActiveTable tr.preset-moving > td:first-child{box-shadow:inset 4px 0 #f59e0b;}
+@keyframes presetMoveBlink{0%,100%{opacity:1}50%{opacity:.4}}
+#presets .pill.preset-moving{animation:presetMoveBlink 1.2s ease-in-out infinite;box-shadow:0 0 0 2px #ec4899;}
 .badge{display:inline-block;border-radius:999px;padding:4px 10px;font-weight:700;font-size:.85rem;}
 .ok{background:var(--ok)}.warn{background:var(--warn)}.alert{background:var(--alert)}
 .q{background:var(--subtle);padding:12px;border-radius:12px;border:1px solid var(--border);}
@@ -144,7 +148,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
 <body>
 <div class="container">
   <header>
-    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.13d）</h1>
+    <h1>ASK-A（AUDIT実施用WEBアプリ ver.0.13e）</h1>
     <div class="row topbar">
       <button id="btnMale" class="btn male" type="button" aria-pressed="false">男性</button>
       <button id="btnFemale" class="btn female" type="button" aria-pressed="false">女性</button>
@@ -233,6 +237,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
           <div class="small muted" style="margin:6px 0 10px;">
             ここで追加したプリセットはブラウザに保存され、次回も表示されます。デフォルトのプリセットは「非表示」にできます。
             各行の「↑ 上へ」「↓ 下へ」で表示順を変更できます。変更した順序は自動保存され、飲料ボタンにも反映されます。
+            最後に移動した行を色で示し、対応する飲料ボタンが点滅します。この編集画面を閉じると解除されます。
           </div>
           <div id="presetOrderStatus" class="small muted" role="status" aria-live="polite"></div>
           <div class="row" style="gap:8px; grid-template-columns: 1.2fr 0.8fr 0.8fr auto; display:grid; align-items:center;">
@@ -620,6 +625,11 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   const KEY_USER_PRESETS = "audit_user_presets";
   const KEY_HIDDEN_PRESETS = "audit_hidden_presets";
   const KEY_PRESET_ORDER = "audit_preset_order";
+  let movingPresetKey=null;
+  function clearPresetMoveFeedback(){
+    movingPresetKey=null;
+    $$('#presetActiveTable .preset-moving, #presets .preset-moving').forEach(el=>el.classList.remove('preset-moving'));
+  }
   const keyOf = (p)=>`${p.n}|${p.ml}|${p.a}`;
   function loadUserPresets(){ try{ return JSON.parse(localStorage.getItem(KEY_USER_PRESETS)||"[]"); }catch(_){ return []; } }
   function saveUserPresets(arr){ try{ localStorage.setItem(KEY_USER_PRESETS, JSON.stringify(arr)); }catch(_){ } }
@@ -661,6 +671,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
       $("#presetOrderStatus").textContent='表示順を保存できませんでした。順序は変更していません。';
       return;
     }
+    movingPresetKey=key;
     renderPresets(); renderPresetTable();
     $("#presetOrderStatus").textContent=active[index].n+'を'+(target+1)+'番目に移動し、表示順を保存しました。';
     const row=Array.from(presetActiveTable.rows).find(r=>r.dataset.presetKey===key);
@@ -715,8 +726,11 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   function renderPresets(){
     const host=$("#presets"); host.innerHTML="";
     const list = getActivePresets();
+    if(!list.some(p=>keyOf(p)===movingPresetKey)) movingPresetKey=null;
     list.forEach(p=>{
       const b=document.createElement('button'); b.className='pill'; b.innerHTML=p.n+" <small class=muted>"+p.ml+"mL/"+p.a+"%</small>";
+      b.dataset.presetKey=keyOf(p);
+      b.classList.toggle('preset-moving',keyOf(p)===movingPresetKey);
       b.addEventListener('click',()=>{
         // Visual feedback: Remove class -> Trigger reflow -> Add class
         b.classList.remove('flash-effect');
@@ -736,6 +750,11 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
   }
   renderPresets(); updateCalc();
   // ===== プリセットエディタ配線 =====
+  ['presetEditor','calcDetails'].forEach(id=>{
+    document.getElementById(id).addEventListener('toggle',e=>{
+      if(!e.target.open) clearPresetMoveFeedback();
+    });
+  });
   const pName = document.getElementById('p_name');
   const pMl   = document.getElementById('p_ml');
   const pAbv  = document.getElementById('p_abv');
@@ -763,6 +782,7 @@ dialog::backdrop { background: rgba(0,0,0,0.5); }
     active.forEach((p,position)=>{
       const tr = document.createElement('tr');
       tr.dataset.presetKey=keyOf(p);
+      tr.classList.toggle('preset-moving',keyOf(p)===movingPresetKey);
       function td(){ return document.createElement('td'); }
       const t1 = td(); t1.textContent = p.n; tr.appendChild(t1);
       const t2 = td(); t2.textContent = p.ml; tr.appendChild(t2);
